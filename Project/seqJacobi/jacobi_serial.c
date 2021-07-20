@@ -45,6 +45,8 @@
  * NOTE: u(0,*), u(maxXCount-1,*), u(*,0) and u(*,maxYCount-1)
  * are BOUNDARIES and therefore not part of the solution.
  *************************************************************/
+
+
  double one_jacobi_iteration(double xStart, double yStart,
                             int maxXCount, int maxYCount,
                             double *src, double *dst,
@@ -53,27 +55,42 @@
 {
 #define SRC(XX,YY) src[(YY)*maxXCount+(XX)]
 #define DST(XX,YY) dst[(YY)*maxXCount+(XX)]
-    int x, y;
-    double fX, fY;
+    double fX_sq[maxXCount-2], fY_sq[maxYCount-2];
     double error = 0.0;
     double updateVal;
     double f;
     // Coefficients
-    double cx = 1.0/(deltaX*deltaX);
-    double cy = 1.0/(deltaY*deltaY);
-    double cc = -2.0*cx-2.0*cy-alpha;
+    double cx = 1.0 / (deltaX * deltaX);
+    double cy = 1.0 / (deltaY * deltaY);
 
-    for (y = 1; y < (maxYCount-1); y++)
+    double cc = -2.0*(cx+cy)-alpha;
+    double div_cc = 1.0 / cc;
+    double cx_cc = 1.0/(deltaX*deltaX) * div_cc;
+    double cy_cc = 1.0/(deltaY*deltaY) * div_cc;
+
+    // Optimize
+    for (int x = 0; x < (maxXCount-2); x++) {
+        fX_sq[x] = (xStart + x * deltaX) * (xStart + x * deltaX);
+    }
+    for (int y = 0; y < (maxYCount-2); y++) {
+        fY_sq[y] = (yStart + y * deltaY) * (yStart + y * deltaY);
+    }
+
+    double c1 = (2.0+alpha) * div_cc;
+    double c2 = 2.0 * div_cc;
+    for (int y = 1; y < (maxYCount - 1); y++)
     {
-        fY = yStart + (y-1)*deltaY;
-        for (x = 1; x < (maxXCount-1); x++)
+        // double fY_sq = (yStart + (y-1)*deltaY) * (yStart + (y-1)*deltaY);
+        for (int x = 1; x < (maxXCount-1); x++)
         {
-            fX = xStart + (x-1)*deltaX;
-            f = -alpha*(1.0-fX*fX)*(1.0-fY*fY) - 2.0*(1.0-fX*fX) - 2.0*(1.0-fY*fY);
-            updateVal = (	(SRC(x-1,y) + SRC(x+1,y))*cx +
-                			(SRC(x,y-1) + SRC(x,y+1))*cy +
-                			SRC(x,y)*cc - f
-						)/cc;
+            // fX = xStart + (x-1)*deltaX;
+            double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+            // f = -c1*(1.0 - fX_sq[x-1] - fY_sq[y-1] + fX_dot_fY_sq) + c2 * (fX_dot_fY_sq - 1.0);
+            updateVal = (SRC(x - 1, y) + SRC(x + 1, y)) * cx_cc +
+                        (SRC(x, y - 1) + SRC(x, y + 1)) * cy_cc +
+                        SRC(x, y) + 
+                        // f is equal to
+                        c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
             DST(x,y) = SRC(x,y) - omega*updateVal;
             error += updateVal*updateVal;
         }
