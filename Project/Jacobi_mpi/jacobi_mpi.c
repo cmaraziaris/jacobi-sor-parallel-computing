@@ -79,16 +79,26 @@ int main(int argc, char **argv)
 
     int myRank, numProcs;
     int prevRank, nextRank;
-    double error_sum, total_error;
+    double error_sum;
 
-    // init MPI and get comm rank and size
+    // init MPI and get comm size
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
+
+    // Create Cartesian topology (NxN)
+    MPI_Comm comm_cart;
+    
+    int dims[2];
+    dims[0] = dims[1] = sqrt(numProcs);
+
+    MPI_Cart_create(MPI_COMM_WORLD, 2, dims, {0, 0}, 1, &comm_cart);
+    MPI_Comm_rank(comm_cart, &myRank);
 
 
     // find neighbours (create cartesian topology)
-    // TODO
+    int south, north, east, west;
+    MPI_Cart_shift(comm_cart, 0, 1, &north, &south);  // North --> Upper Row, South --> Lower Row
+    MPI_Cart_shift(comm_cart, 1, 1, &east, &west);    // East  --> Right Col, West  --> Left Col
 
     // make sure only the root process will read input configurations
     if (myRank == 0) {
@@ -106,22 +116,30 @@ int main(int argc, char **argv)
         printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, tol, mits);
     }
 
-
     // Broadcast configuration to all of the processes
-    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&m, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&alpha, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&relax, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&tol, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&mits, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&n, 1, MPI_INT, 0, comm_cart);
+    MPI_Bcast(&m, 1, MPI_INT, 0, comm_cart);
+    MPI_Bcast(&alpha, 1, MPI_DOUBLE, 0, comm_cart);
+    MPI_Bcast(&relax, 1, MPI_DOUBLE, 0, comm_cart);
+    MPI_Bcast(&tol, 1, MPI_DOUBLE, 0, comm_cart);
+    MPI_Bcast(&mits, 1, MPI_INT, 0, comm_cart);
 
-
-    
     // block dimensions for children processes
-    int localAlloCountN = (int)ceil((double)n/(double)numProcs);
-    int localAlloCountM = (int)ceil((double)m/(double)numProcs);
-    allAllocCount = n*m;
-    localAllocCount = (localAlloCountN + 2) * (localAlloCountM + 2);
+    int localAlloCountN = (int)ceil((double)n / (double)numProcs);
+    int localAlloCountM = (int)ceil((double)m / (double)numProcs);
+    int localAllocCount = (localAlloCountN + 2) * (localAlloCountM + 2);
+
+    // Define Row datatype
+    MPI_Datatype row_t;
+    MPI_Type_contiguous(localAlloCountM, MPI_DOUBLE, &row_t);
+    MPI_Type_commit(&row_t);
+
+    // Define Col datatype
+    MPI_Datatype col_t;
+    MPI_Type_vector(localAlloCountN, 1, localAlloCountM, MPI_DOUBLE, &col_t)
+    MPI_Type_commit(&col_t);
+
+    // allAllocCount = n*m;
     // allocCount = myRank == 0 
     //                     ? n * m                                             // root proc array-u dimensions 
     //                     : (localAlloCountN) + 2) * (localAlloCountM + 2) ;  // child proc array-u dimensions, remember to add the extra halo rows
@@ -136,6 +154,7 @@ int main(int argc, char **argv)
     // child process
     u = (double *)calloc(localAllocCount, sizeof(double));
     u_old = (double *)calloc(localAllocCount, sizeof(double));
+
     if (u == NULL || u_old == NULL)
     {
         printf("Not enough memory for two %ix%i matrices\n", n + 2, m + 2);
@@ -144,9 +163,8 @@ int main(int argc, char **argv)
     
 
     // Scatter the blocks
-    MPI_Scatter(u_all, localAllocCountN * localAlloCountM, MPI_DOUBLE, u_old, localAllocCountN * localAlloCountM, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatter(u_all, localAlloCountN * localAlloCountM, MPI_DOUBLE, u_old, localAlloCountN * localAlloCountM, MPI_DOUBLE, 0, comm_cart);
     /////
-
 
     maxIterationCount = mits;
     maxAcceptableError = tol;
@@ -162,7 +180,6 @@ int main(int argc, char **argv)
     error = HUGE_VAL;
     clock_t start = clock(), diff;
 
-    MPI_Init(NULL, NULL);
     t1 = MPI_Wtime();
 
     int maxXCount = localAlloCountN + 2;
@@ -208,7 +225,24 @@ int main(int argc, char **argv)
 
         error = 0.0;
 
+
+        int tag = 666; // random tag
+
+        MPI_Request req_n, req_s, req_e, req_w;
         // TODO halo swap
+        MPI_Irecv(u, )
+        MPI_Irecv(u, )
+        MPI_Irecv(u, )
+        MPI_Irecv(u, )
+        MPI_Isend(u[localAlloCountM+2], 1, row_t, north, tag, comm_cart, &req_n)
+        MPI_Isend(u[localAlloCountM+2], 1, row_t, north, tag, comm_cart, &req_n)
+        MPI_Isend(u[localAlloCountM+2], 1, row_t, north, tag, comm_cart, &req_n)
+        MPI_Isend(u[localAlloCountM+2], 1, row_t, north, tag, comm_cart, &req_n)
+
+// int MPI_Irecv( void* buf, int count,
+//  MPI_Datatype datatype,
+//  int source, int tag, MPI_Comm comm,
+//  MPI_Request *request)
 
         for (int y = 1; y < (maxYCount - 1); y++)
         {
@@ -227,8 +261,8 @@ int main(int argc, char **argv)
         }
 
         // all reduce - to sum errors for all processes
-
-        total_error = sqrt(error_sum) / (n * m);
+        MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
+        error = sqrt(error_sum) / (n * m);
 
         // Swap the buffers
         tmp = u_old;
@@ -237,13 +271,24 @@ int main(int argc, char **argv)
     }
 
     t2 = MPI_Wtime();
-    printf("Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount, t2 - t1);
-    MPI_Finalize();
+    if (myRank == 0) {
+        printf("Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount, t2 - t1);
+    }
 
     diff = clock() - start;
     int msec = diff * 1000 / CLOCKS_PER_SEC;
-    printf("Time taken %d seconds %d milliseconds\n", msec / 1000, msec % 1000);
-    printf("Residual %g\n", error);
+    int max_msec;
+
+    MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MAX, comm_cart);
+
+    if (myRank == 0) {
+        printf("Time taken %d seconds %d milliseconds\n", msec / 1000, msec % 1000);
+        printf("Residual %g\n", error);
+    }
+
+
+    // TODO: Re-assemble u_all
+
 
     // u_old holds the solution after the most recent buffers swap
     double absoluteError = checkSolution(xLeft, yBottom,
@@ -253,5 +298,6 @@ int main(int argc, char **argv)
                                          alpha);
     printf("The error of the iterative solution is %g\n", absoluteError);
 
+    MPI_Finalize();
     return 0;
 }
