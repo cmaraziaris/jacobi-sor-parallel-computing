@@ -53,8 +53,6 @@
                             double deltaX, double deltaY,
                             double alpha, double omega)
 {
-#define SRC(XX,YY) src[(YY)*maxXCount+(XX)]
-#define DST(XX,YY) dst[(YY)*maxXCount+(XX)]
     double fX_sq[maxXCount-2], fY_sq[maxYCount-2];
     double error = 0.0;
     double updateVal;
@@ -78,6 +76,7 @@
 
     double c1 = (2.0+alpha) * div_cc;
     double c2 = 2.0 * div_cc;
+    int index = maxXCount;
     for (int y = 1; y < (maxYCount - 1); y++)
     {
         // double fY_sq = (yStart + (y-1)*deltaY) * (yStart + (y-1)*deltaY);
@@ -86,14 +85,15 @@
             // fX = xStart + (x-1)*deltaX;
             double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
             // f = -c1*(1.0 - fX_sq[x-1] - fY_sq[y-1] + fX_dot_fY_sq) + c2 * (fX_dot_fY_sq - 1.0);
-            updateVal = (SRC(x - 1, y) + SRC(x + 1, y)) * cx_cc +
-                        (SRC(x, y - 1) + SRC(x, y + 1)) * cy_cc +
-                        SRC(x, y) + 
+            updateVal = (src[index + x - 1] + src[index + x + 1]) * cx_cc +
+                        (src[index - maxXCount + x] + src[index + maxXCount + x]) * cy_cc +
+                        src[index + x] + 
                         // f is equal to
                         c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-            DST(x,y) = SRC(x,y) - omega*updateVal;
+            dst[index + x] = src[index + x] - omega*updateVal;
             error += updateVal*updateVal;
         }
+        index += maxXCount;
     }
     return sqrt(error)/((maxXCount-2)*(maxYCount-2));
 }
