@@ -357,7 +357,13 @@ int main(int argc, char **argv)
     MPI_Datatype block_t;
     MPI_Type_vector(local_n, local_m, local_m+2, MPI_DOUBLE, &block_t);
     MPI_Type_commit(&block_t);
+    double *u_old_send = calloc(local_m*local_n, sizeof(double));
 
+    for (int y = 1; y < local_m + 1; y++) {
+        for (int x = 1; x < local_n + 1; x++) {
+            u_old_send[x - 1 + indices[y-1]] = u_old[ x + indices[y]];
+        }
+    }
 
     // int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
     // void *recvbuf, int recvcount, MPI_Datatype recvtype, int root,
@@ -377,8 +383,14 @@ int main(int argc, char **argv)
 
     // printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
     if (myRank == 0) {printf("Expecting %d doubles from each of the %d processes to put in a %dx%d matrix...\n", local_n*local_m, numProcs, n, m);}
-    int i = MPI_Gather(&u_old[local_m + 2 + 1], 1, block_t, u_all, local_m*local_n, MPI_DOUBLE, 0, comm_cart);
-    
+    int i = MPI_Gather(u_old_send, local_m*local_n, MPI_DOUBLE, u_all, local_m*local_n, MPI_DOUBLE, 0, comm_cart);
+    if (myRank == 0)
+    {
+        for (int i = 0; i < n * m; i++)
+        {
+            printf("%d \n", u_all[i]);
+        }
+    }
     // printf("i = %d\n", i);
     // printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
 

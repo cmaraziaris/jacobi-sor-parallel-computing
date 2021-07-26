@@ -1,0 +1,12 @@
+malloc(): invalid size (unsorted)
+[argo-c0:207158] *** Process received signal ***
+[argo-c0:207158] Signal: Aborted (6)
+[argo-c0:207158] Signal code:  (-6)
+malloc(): invalid size (unsorted)
+[argo-c3:152093] *** Process received signal ***
+[argo-c3:152093] Signal: Aborted (6)
+[argo-c3:152093] Signal code:  (-6)
+malloc(): invalid size (unsorted)
+[argo-c2:154375] *** Process received signal ***
+[argo-c2:154375] Signal: Aborted (6)
+[argo-c2:154375] Signal code:  (-6)

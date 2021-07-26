@@ -3,5 +3,5 @@ Primary job  terminated normally, but 1 process returned
 a non-zero exit code. Per user-direction, the job has been aborted.
 --------------------------------------------------------------------------
 --------------------------------------------------------------------------
-mpirun noticed that process rank 0 with PID 0 on node argo-c0 exited on signal 11 (Segmentation fault).
+mpirun noticed that process rank 2 with PID 142688 on node argo-c6 exited on signal 11 (Segmentation fault).
 --------------------------------------------------------------------------
