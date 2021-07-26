@@ -1,0 +1,6 @@
+[argo-c0:206586] *** An error occurred in MPI_Gather
+[argo-c0:206586] *** reported by process [21823489,0]
+[argo-c0:206586] *** on communicator MPI_COMMUNICATOR 3
+[argo-c0:206586] *** MPI_ERR_TRUNCATE: message truncated
+[argo-c0:206586] *** MPI_ERRORS_ARE_FATAL (processes in this communicator will now abort,
+[argo-c0:206586] ***    and potentially your MPI job)

@@ -135,11 +135,13 @@ int main(int argc, char **argv)
 
     // Define Col datatype
     MPI_Datatype col_t;
-    MPI_Type_vector(local_n, 1, local_m, MPI_DOUBLE, &col_t);
+    MPI_Type_vector(local_n, 1, local_m+2, MPI_DOUBLE, &col_t);
     MPI_Type_commit(&col_t);
 
     if (myRank == 0) {
-        u_all = (double *) calloc(n * m+1, sizeof(double));  // u_all : Global solution array
+        // total_n = local_n * (int)ceil(sqrt((double)numProcs));
+        // total_m = local_m * (int)ceil(sqrt((double)numProcs));
+        u_all = (double *) calloc(n * m, sizeof(double));  // u_all : Global solution array
     }
     // Store worker blocks in u, u_old
     u = (double *) calloc(((local_n + 2) * (local_m + 2)), sizeof(double));
@@ -263,6 +265,7 @@ int main(int argc, char **argv)
         // for x from 1 to maxXCount-2
         // y = 1
         // y = maxYCount - 2
+        // estimate outer rows
         for (int x = 1; x < (maxXCount - 1); x++)
         {
             int y = 1;
@@ -276,7 +279,7 @@ int main(int argc, char **argv)
             u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
             error += updateVal * updateVal;
 
-            y = maxXCount - 2;
+            y = maxYCount - 2;
             fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
             updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
@@ -291,6 +294,7 @@ int main(int argc, char **argv)
         // for y from 1 to maxYCount-2
         // x = 1
         // x = maxXCount - 2
+        // estimate outer columns
         for (int y = 1; y < (maxYCount - 1); y++)
         {
             int x = 1;
@@ -371,9 +375,12 @@ int main(int argc, char **argv)
     // }
     // funlockfile(stdout);
 
-    printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
-    MPI_Gather(&u_old[local_m + 2 + 1], 1, block_t, u_all, 1, block_t, 0, comm_cart);
-    printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
+    // printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
+    if (myRank == 0) {printf("Expecting %d doubles from each of the %d processes to put in a %dx%d matrix...\n", local_n*local_m, numProcs, n, m);}
+    int i = MPI_Gather(&u_old[local_m + 2 + 1], 1, block_t, u_all, local_m*local_n, MPI_DOUBLE, 0, comm_cart);
+    
+    // printf("i = %d\n", i);
+    // printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
 
 
     // u_old holds the solution after the most recent buffers swap
