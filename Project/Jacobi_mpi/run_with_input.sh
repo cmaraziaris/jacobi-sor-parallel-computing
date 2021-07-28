@@ -1,3 +1,5 @@
+# Example run:
+# $ bash run_with_input.sh 840 2
 
 # printf "\n--SOF--\n"
 
