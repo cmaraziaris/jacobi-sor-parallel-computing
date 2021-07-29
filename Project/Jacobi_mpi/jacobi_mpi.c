@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <mpi.h>
 
@@ -94,11 +95,14 @@ int main(int argc, char **argv)
 
     MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periodic, 1, &comm_cart);
     MPI_Comm_rank(comm_cart, &myRank);
+    // printf("\nHello from Proccess with Rank: %d\n", myRank);
 
     // find neighbours (create cartesian topology)
     int south, north, east, west;
     MPI_Cart_shift(comm_cart, 0, 1, &north, &south);  // North --> Upper Row, South --> Lower Row
     MPI_Cart_shift(comm_cart, 1, 1, &west, &east);    // West  --> Left Col,  East  --> Right Col
+
+    // fprintf(stderr, "\n[NEIGHB] Hi, this is Rank %d, with Neighbours: N->%d, S->%d, W->%d, E->%d\n", myRank, north, south, west, east);
 
     // make sure only the root process will read input configurations
     if (myRank == 0) {
@@ -129,6 +133,8 @@ int main(int argc, char **argv)
     int local_m = (int) ceil((double)m / sqrt((double)numProcs));
 
     // Define Row datatype
+    // NOTE: Probably not needed - comms can be done via local_x * MPI_DOUBLE instead of 1 * row_t
+    // but it's probably cleaner and more symmetric w/ row_t - not sure if faster though - TODO: CHECK it
     MPI_Datatype row_t;
     MPI_Type_contiguous(local_m, MPI_DOUBLE, &row_t);
     MPI_Type_commit(&row_t);
@@ -138,29 +144,28 @@ int main(int argc, char **argv)
     MPI_Type_vector(local_n, 1, local_m+2, MPI_DOUBLE, &col_t);
     MPI_Type_commit(&col_t);
 
+<<<<<<< HEAD
     if (myRank == 0) {
         // total_n = local_n * (int)ceil(sqrt((double)numProcs));
         // total_m = local_m * (int)ceil(sqrt((double)numProcs));
         u_all = (double *) calloc(n * m, sizeof(double));  // u_all : Global solution array
+=======
+    if (myRank == 0) {  // TODO: Maybe move the calloc of u_all right before the RE-ASSEMBLY, and after we free u or u_old for better mem management.
+        u_all = (double *) calloc((n+2) * (m+2), sizeof(double));  // u_all : Global solution array
+>>>>>>> 6254ea9a7f5e8f8ac58c7310b0ae9554a5d31745
     }
+
     // Store worker blocks in u, u_old
     u = (double *) calloc(((local_n + 2) * (local_m + 2)), sizeof(double));
     u_old = (double *) calloc(((local_n + 2) * (local_m + 2)), sizeof(double));
 
-    if (u == NULL || u_old == NULL)
-    {
-        printf("Not enough memory for two %ix%i matrices\n", local_n + 2, local_m + 2);
-        exit(1);
+    if (u == NULL || u_old == NULL) {
+        printf("Not enough memory for two %ix%i matrices\n", local_n + 2, local_m + 2); exit(1);
     }
     
+    int tag = 666; // random tag
 
-    // Scatter the blocks
-    // [harry] : Den exei nohma to na metaferoume mhdenika blocks (afou einai idi 0 to worker/root buffer logw calloc), 
-    // mporoume na kalesoume mono Gather sto telos
-    
-    // MPI_Scatter(u_all, local_n * local_m, MPI_DOUBLE, u_old, local_n * local_m, MPI_DOUBLE, 0, comm_cart);
-    
-    /////
+    ///////////////////////////
 
     maxIterationCount = mits;
     maxAcceptableError = tol;
@@ -169,8 +174,8 @@ int main(int argc, char **argv)
     double xLeft = -1.0, xRight = 1.0;
     double yBottom = -1.0, yUp = 1.0;
 
-    double deltaX = (xRight - xLeft) / (local_n - 1);
-    double deltaY = (yUp - yBottom) / (local_m - 1);
+    double deltaX = (xRight - xLeft) / (n - 1);
+    double deltaY = (yUp - yBottom) / (m - 1);
 
     iterationCount = 0;
     error = HUGE_VAL;
@@ -204,8 +209,6 @@ int main(int argc, char **argv)
     for (int i = 0; i < maxYCount; i++) {
         indices[i] = i * maxXCount;
     }
-    
-    int tag = 666; // random tag
 
     /* Iterate as long as it takes to meet the convergence criterion */
     while (iterationCount < maxIterationCount && error > maxAcceptableError)
@@ -228,19 +231,19 @@ int main(int argc, char **argv)
         MPI_Request req_send[4], req_recv[4];
 
         // TODO halo swap --> check this on paper
-        MPI_Irecv(&u[1], 1, row_t, north, tag, comm_cart, &req_recv[0]);
-        MPI_Irecv(&u[(local_m+2)*(local_n+1)+1], 1, row_t, south, tag, comm_cart, &req_recv[1]);
-        MPI_Irecv(&u[local_m + 2], 1, col_t, west, tag, comm_cart, &req_recv[2]);
-        MPI_Irecv(&u[local_m + 2 + local_m + 1], 1, col_t, east, tag, comm_cart, &req_recv[3]);
+        MPI_Irecv(&u_old[1], 1, row_t, north, tag, comm_cart, &req_recv[0]);
+        MPI_Irecv(&u_old[(local_m+2)*(local_n+1)+1], 1, row_t, south, tag, comm_cart, &req_recv[1]);
+        MPI_Irecv(&u_old[local_m + 2], 1, col_t, west, tag, comm_cart, &req_recv[2]);
+        MPI_Irecv(&u_old[local_m + 2 + local_m + 1], 1, col_t, east, tag, comm_cart, &req_recv[3]);
 
-        MPI_Isend(&u[local_m + 2 + 1], 1, row_t, north, tag, comm_cart, &req_send[0]);
-        MPI_Isend(&u[(local_m+2) * (local_n) + 1], 1, row_t, south, tag, comm_cart, &req_send[1]);
-        MPI_Isend(&u[local_m + 2 + 1], 1, col_t, west, tag, comm_cart, &req_send[2]);
-        MPI_Isend(&u[local_m + 2 + local_m], 1, col_t, east, tag, comm_cart, &req_send[3]);
+        MPI_Isend(&u_old[local_m + 2 + 1], 1, row_t, north, tag, comm_cart, &req_send[0]);
+        MPI_Isend(&u_old[(local_m+2) * (local_n) + 1], 1, row_t, south, tag, comm_cart, &req_send[1]);
+        MPI_Isend(&u_old[local_m + 2 + 1], 1, col_t, west, tag, comm_cart, &req_send[2]);
+        MPI_Isend(&u_old[local_m + 2 + local_m], 1, col_t, east, tag, comm_cart, &req_send[3]);
 
 // int MPI_Irecv( void* buf, int count,  MPI_Datatype datatype,  int source, int tag, MPI_Comm comm,  MPI_Request *request)
 
-        // TODO: Calculate inner values
+        // Calculate inner values
         for (int y = 2; y < (maxYCount - 2); y++)
         {
             for (int x = 2; x < (maxXCount - 2); x++)
@@ -260,7 +263,7 @@ int main(int argc, char **argv)
         // Make sure we got the Halos from the neighbours
         MPI_Waitall(4, req_recv, MPI_STATUSES_IGNORE);
 
-        //TODO: Calculate outer values
+        // Calculate outer values
 
         // for x from 1 to maxXCount-2
         // y = 1
@@ -320,16 +323,16 @@ int main(int argc, char **argv)
             error += updateVal * updateVal;
         }
 
-        // Swap the buffers
-        tmp = u_old;
-        u_old = u;
-        u = tmp;
-
         // all reduce - to sum errors for all processes
         MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
         error = sqrt(error_sum) / (n * m);
 
         MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);
+
+        // Swap the buffers
+        tmp = u_old;
+        u_old = u;
+        u = tmp;
     }
 
     t2 = MPI_Wtime();
@@ -341,6 +344,7 @@ int main(int argc, char **argv)
     int msec = diff * 1000 / CLOCKS_PER_SEC;
     int max_msec;
 
+    // Get the maximum time among every process-worker
     MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MAX, 0, comm_cart);
 
     if (myRank == 0) {
@@ -348,6 +352,7 @@ int main(int argc, char **argv)
         printf("Residual %g\n", error);
     }
 
+<<<<<<< HEAD
     // TODO: Re-assemble u_all
 
     // Define Block datatype
@@ -393,33 +398,58 @@ int main(int argc, char **argv)
     }
     // printf("i = %d\n", i);
     // printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
+=======
+>>>>>>> 6254ea9a7f5e8f8ac58c7310b0ae9554a5d31745
 
+    //  Re-assemble u_all
+    if (myRank != 0)  // Workers send their actual (local_n) rows
+    {
+        // Send every row in ascending order to root
+        for (int y = 1; y != local_n+1; y++) {
+            MPI_Ssend(&u_old[y * (local_m+2) + 1], local_m, MPI_DOUBLE, 
+                      0, tag, comm_cart);
+        }
+    }
+    else  // Root receives them in correct order
+    {
+        // DONE: verify that processes are in order
+        // e.g. 1 2 3 | 4 5 6 | 7 8 9 in a 3x3 grid
+        // (but we should probably make it a bit more generic - or not)
+        int n_dim_grid = (int) sqrt((double) numProcs);
 
-    // u_old holds the solution after the most recent buffers swap
+        int index = m+2 + 1;
+        // TODO: Maybe optimize it - it's pretty naive
+        for (int i = 0; i != n_dim_grid; ++i)  // For each grid horizontal block
+        {
+            for (int j = 0; j != local_n; ++j)  // For each row in the block
+            {
+                for (int k = 0; k != n_dim_grid; ++k)  // For each process in the block
+                {
+                    int src = i * n_dim_grid + k;
+                    if (src != 0)
+                    {
+                        MPI_Recv(&u_all[index], local_m, MPI_DOUBLE, src, 
+                             tag, comm_cart, MPI_STATUS_IGNORE);
+                    }
+                    else
+                    {
+                        memcpy(&u_all[index], &u_old[(j + 1) * (local_m+2) + 1], local_m * sizeof(double));
+                    }
+                    index += local_m;
+                }
+                index += 2;
+            }
+        }
+        
+    }
+
+    // u_all holds the full solution
     if (myRank == 0)
     {
-        // printf("This is Rank 0 and this is u_all:\n");
-        // for (int i = 0; i < n; i++)
-        // {
-        //     for (int j = 0; j < m; j++)
-        //     {
-        //         printf(" 666.%lf ", u_all[i * m + j]);
-        //     }
-        //     printf("\n");
-        // }
-        
-        double absoluteError = checkSolution(xLeft, yBottom,
-                                         n + 2, m + 2,
-                                         u_all,
-                                         deltaX, deltaY,
-                                         alpha);
+        double absoluteError = checkSolution(xLeft, yBottom, n + 2, m + 2, u_all, deltaX, deltaY, alpha);
         printf("The error of the iterative solution is %g\n", absoluteError);
     }
 
     MPI_Finalize();
     return 0;
 }
-
-// TODO: Trwei SEG, na dokimasw me:
-//    MPI_Finalize();
-//    exit(0);
