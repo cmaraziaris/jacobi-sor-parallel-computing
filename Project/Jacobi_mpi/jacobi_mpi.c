@@ -356,7 +356,7 @@ int main(int argc, char **argv)
     {
         // total_n = local_n * (int)ceil(sqrt((double)numProcs));
         // total_m = local_m * (int)ceil(sqrt((double)numProcs));
-        u_all = (double *)calloc(n * m, sizeof(double)); // u_all : Global solution array
+        u_all = (double *)calloc(numProcs *local_m*(local_n+2), sizeof(MPI_DOUBLE)); // u_all : Global solution array
     }
     int ret = MPI_Gather(&u_old[local_n+3], 1, block_t, u_all, 1, block_t, 0, comm_cart);
     free(u_old);
