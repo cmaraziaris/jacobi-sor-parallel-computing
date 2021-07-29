@@ -131,12 +131,12 @@ int main(int argc, char **argv)
 
     // Define Row datatype
     MPI_Datatype row_t;
-    MPI_Type_contiguous(local_m, MPI_DOUBLE, &row_t);
+    MPI_Type_contiguous(local_n, MPI_DOUBLE, &row_t);
     MPI_Type_commit(&row_t);
 
     // Define Col datatype
     MPI_Datatype col_t;
-    MPI_Type_vector(local_n, 1, local_m+2, MPI_DOUBLE, &col_t);
+    MPI_Type_vector(local_m, 1, local_n+2, MPI_DOUBLE, &col_t);
     MPI_Type_commit(&col_t);
 
     if (myRank == 0) {
@@ -148,20 +148,11 @@ int main(int argc, char **argv)
     u = (double *) calloc(((local_n + 2) * (local_m + 2)), sizeof(double));
     u_old = (double *) calloc(((local_n + 2) * (local_m + 2)), sizeof(double));
 
-    if (u == NULL || u_old == NULL)
+    if (u == NULL || u_old == NULL || (myRank == 0 && u_all == NULL))
     {
         printf("Not enough memory for two %ix%i matrices\n", local_n + 2, local_m + 2);
         exit(1);
     }
-    
-
-    // Scatter the blocks
-    // [harry] : Den exei nohma to na metaferoume mhdenika blocks (afou einai idi 0 to worker/root buffer logw calloc), 
-    // mporoume na kalesoume mono Gather sto telos
-    
-    // MPI_Scatter(u_all, local_n * local_m, MPI_DOUBLE, u_old, local_n * local_m, MPI_DOUBLE, 0, comm_cart);
-    
-    /////
 
     maxIterationCount = mits;
     maxAcceptableError = tol;
@@ -172,7 +163,7 @@ int main(int argc, char **argv)
 
     double deltaX = (xRight - xLeft) / (n - 1);
     double deltaY = (yUp - yBottom) / (m - 1);
-    
+
     iterationCount = 0;
     error = HUGE_VAL;
     clock_t start = clock(), diff;
@@ -230,14 +221,14 @@ int main(int argc, char **argv)
 
         // TODO halo swap --> check this on paper
         MPI_Irecv(&u_old[1], 1, row_t, north, tag, comm_cart, &req_recv[0]);
-        MPI_Irecv(&u_old[(local_m + 2) * (local_n + 1) + 1], 1, row_t, south, tag, comm_cart, &req_recv[1]);
-        MPI_Irecv(&u_old[local_m + 2], 1, col_t, west, tag, comm_cart, &req_recv[2]);
-        MPI_Irecv(&u_old[local_m + 2 + local_m + 1], 1, col_t, east, tag, comm_cart, &req_recv[3]);
+        MPI_Irecv(&u_old[(local_n + 2) * (local_m + 1) + 1], 1, row_t, south, tag, comm_cart, &req_recv[1]);
+        MPI_Irecv(&u_old[local_n + 2], 1, col_t, west, tag, comm_cart, &req_recv[2]);
+        MPI_Irecv(&u_old[local_n + 2 + local_n + 1], 1, col_t, east, tag, comm_cart, &req_recv[3]);
 
-        MPI_Isend(&u_old[local_m + 2 + 1], 1, row_t, north, tag, comm_cart, &req_send[0]);
-        MPI_Isend(&u_old[(local_m + 2) * (local_n) + 1], 1, row_t, south, tag, comm_cart, &req_send[1]);
-        MPI_Isend(&u_old[local_m + 2 + 1], 1, col_t, west, tag, comm_cart, &req_send[2]);
-        MPI_Isend(&u_old[local_m + 2 + local_m], 1, col_t, east, tag, comm_cart, &req_send[3]);
+        MPI_Isend(&u_old[local_n + 2 + 1], 1, row_t, north, tag, comm_cart, &req_send[0]);
+        MPI_Isend(&u_old[(local_n + 2) * (local_m) + 1], 1, row_t, south, tag, comm_cart, &req_send[1]);
+        MPI_Isend(&u_old[local_n + 2 + 1], 1, col_t, west, tag, comm_cart, &req_send[2]);
+        MPI_Isend(&u_old[local_n + 2 + local_n], 1, col_t, east, tag, comm_cart, &req_send[3]);
 
         // int MPI_Irecv( void* buf, int count,  MPI_Datatype datatype,  int source, int tag, MPI_Comm comm,  MPI_Request *request)
 
@@ -355,18 +346,18 @@ int main(int argc, char **argv)
     // Block is (supposed to be) the initial local_n x local_m matrix,
     // aka actual elements *without* halo rows/cols
     // FIX-TODO: sizeof(block_t) == 1 for some reason
-    MPI_Datatype block_t;
-    MPI_Type_vector(local_n, local_m, local_m+2, MPI_DOUBLE, &block_t);
-    MPI_Type_commit(&block_t);
+    // MPI_Datatype block_t;
+    // MPI_Type_vector(local_n, local_m, local_m+2, MPI_DOUBLE, &block_t);
+    // MPI_Type_commit(&block_t);
+    
     double *u_old_send = calloc(local_m*local_n, sizeof(double));
 
     // remove all the halos and send the array
     for (int y = 1; y < local_m + 1; y++) {
         for (int x = 1; x < local_n + 1; x++) {
-            u_old_send[x - 1 + indices[y-1]] = u_old[ x + indices[y]];
+            u_old_send[x - 1 + indices[y-1]] = u_old[x + indices[y]];
         }
     }
-    // free(u_old);
 
     // debbuging message
     // if (myRank == 0) {
@@ -375,9 +366,9 @@ int main(int argc, char **argv)
     
     // gather all the u-matrices in the u_all matrix and get ready to reassemble it
     int ret = MPI_Gather(u_old_send, local_m*local_n, MPI_DOUBLE, u_all, local_m*local_n, MPI_DOUBLE, 0, comm_cart);
-    // free(u_old_send);
-    printf("Process %d says hello\n", myRank);
+    // printf("Process %d says hello\n", myRank);
     // u_old holds the solution after the most recent buffers swap
+    
     if (myRank == 0) {
         #define INDEX(y) (y*(n+2))
 
@@ -402,6 +393,7 @@ int main(int argc, char **argv)
                                          deltaX, deltaY,
                                          alpha);
         printf("The error of the iterative solution is %g\n", absoluteError);
+        free(u_final);
     }
 
     MPI_Finalize();

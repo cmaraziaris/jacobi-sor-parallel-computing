@@ -1,0 +1,4 @@
+-> 26880, 26880, 0.8, 1, 1e-13, 50
+Iterations= 50 Elapsed MPI Wall time is 164.664402
+Time taken 163 seconds 982 milliseconds
+Residual 1.65026e-13

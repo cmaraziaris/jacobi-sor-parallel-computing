@@ -1,0 +1,21 @@
+free(): invalid size
+[argo-c0:308612] *** Process received signal ***
+[argo-c0:308612] Signal: Aborted (6)
+[argo-c0:308612] Signal code:  (-6)
+[argo-c0:308612] [ 0] /lib64/libpthread.so.0(+0x12b20)[0x14620e4deb20]
+[argo-c0:308612] [ 1] /lib64/libc.so.6(gsignal+0x10f)[0x14620e1407ff]
+[argo-c0:308612] [ 2] /lib64/libc.so.6(abort+0x127)[0x14620e12ac35]
+[argo-c0:308612] [ 3] /lib64/libc.so.6(+0x7a987)[0x14620e183987]
+[argo-c0:308612] [ 4] /lib64/libc.so.6(+0x81d8c)[0x14620e18ad8c]
+[argo-c0:308612] [ 5] /lib64/libc.so.6(+0x8369c)[0x14620e18c69c]
+[argo-c0:308612] [ 6] jacobi_mpi.x[0x402b1f]
+[argo-c0:308612] [ 7] /lib64/libc.so.6(__libc_start_main+0xf3)[0x14620e12c7b3]
+[argo-c0:308612] [ 8] jacobi_mpi.x[0x402d0e]
+[argo-c0:308612] *** End of error message ***
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun noticed that process rank 0 with PID 0 on node argo-c0 exited on signal 6 (Aborted).
+--------------------------------------------------------------------------
