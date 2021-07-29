@@ -1,3 +1,0 @@
--> 26880, 26880, 0.8, 1, 1e-13, 50
-[1627565130.374935] [argo-c6:187686:0]           sock.c:344  UCX  ERROR recv(fd=28) failed: Connection reset by peer
-[1627565130.375022] [argo-c5:189783:0]           sock.c:344  UCX  ERROR recv(fd=27) failed: Connection reset by peer

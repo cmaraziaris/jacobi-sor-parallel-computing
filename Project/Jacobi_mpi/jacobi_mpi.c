@@ -37,6 +37,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <mpi.h>
 
@@ -78,7 +79,7 @@ int main(int argc, char **argv)
     int iterationCount, maxIterationCount;
     double t1, t2;
 
-    int myRank, numProcs;
+    int tag = 0, myRank, numProcs;
     int prevRank, nextRank;
     double error_sum;
 
@@ -95,11 +96,14 @@ int main(int argc, char **argv)
 
     MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periodic, 1, &comm_cart);
     MPI_Comm_rank(comm_cart, &myRank);
+    // printf("\nHello from Proccess with Rank: %d\n", myRank);
 
     // find neighbours (create cartesian topology)
     int south, north, east, west;
     MPI_Cart_shift(comm_cart, 0, 1, &north, &south);  // North --> Upper Row, South --> Lower Row
     MPI_Cart_shift(comm_cart, 1, 1, &west, &east);    // West  --> Left Col,  East  --> Right Col
+
+    // fprintf(stderr, "\n[NEIGHB] Hi, this is Rank %d, with Neighbours: N->%d, S->%d, W->%d, E->%d\n", myRank, north, south, west, east);
 
     // make sure only the root process will read input configurations
     if (myRank == 0) {
@@ -130,6 +134,8 @@ int main(int argc, char **argv)
     int local_m = (int) ceil((double)m / sqrt((double)numProcs));
 
     // Define Row datatype
+    // NOTE: Probably not needed - comms can be done via local_x * MPI_DOUBLE instead of 1 * row_t
+    // but it's probably cleaner and more symmetric w/ row_t - not sure if faster though - TODO: CHECK it
     MPI_Datatype row_t;
     MPI_Type_contiguous(local_n, MPI_DOUBLE, &row_t);
     MPI_Type_commit(&row_t);
@@ -139,16 +145,11 @@ int main(int argc, char **argv)
     MPI_Type_vector(local_m, 1, local_n+2, MPI_DOUBLE, &col_t);
     MPI_Type_commit(&col_t);
 
-    if (myRank == 0) {
-        // total_n = local_n * (int)ceil(sqrt((double)numProcs));
-        // total_m = local_m * (int)ceil(sqrt((double)numProcs));
-        u_all = (double *) calloc(n * m, sizeof(double));  // u_all : Global solution array
-    }
     // Store worker blocks in u, u_old
     u = (double *) calloc(((local_n + 2) * (local_m + 2)), sizeof(double));
     u_old = (double *) calloc(((local_n + 2) * (local_m + 2)), sizeof(double));
 
-    if (u == NULL || u_old == NULL || (myRank == 0 && u_all == NULL))
+    if (u == NULL || u_old == NULL)
     {
         printf("Not enough memory for two %ix%i matrices\n", local_n + 2, local_m + 2);
         exit(1);
@@ -196,8 +197,6 @@ int main(int argc, char **argv)
     for (int i = 0; i < maxYCount; i++) {
         indices[i] = i * maxXCount;
     }
-    
-    int tag = 666; // random tag
 
     /* Iterate as long as it takes to meet the convergence criterion */
     while (iterationCount < maxIterationCount && error > maxAcceptableError)
@@ -333,7 +332,9 @@ int main(int argc, char **argv)
     int msec = diff * 1000 / CLOCKS_PER_SEC;
     int max_msec;
 
+    // Get the maximum time among every process-worker
     MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MAX, 0, comm_cart);
+    free(u);
 
     if (myRank == 0) {
         printf("Time taken %d seconds %d milliseconds\n", msec / 1000, msec % 1000);
@@ -346,47 +347,43 @@ int main(int argc, char **argv)
     // Block is (supposed to be) the initial local_n x local_m matrix,
     // aka actual elements *without* halo rows/cols
     // FIX-TODO: sizeof(block_t) == 1 for some reason
-    // MPI_Datatype block_t;
-    // MPI_Type_vector(local_n, local_m, local_m+2, MPI_DOUBLE, &block_t);
-    // MPI_Type_commit(&block_t);
-    
-    double *u_old_send = calloc(local_m*local_n, sizeof(double));
-
-    // remove all the halos and send the array
-    for (int y = 1; y < local_m + 1; y++) {
-        for (int x = 1; x < local_n + 1; x++) {
-            u_old_send[x - 1 + indices[y-1]] = u_old[x + indices[y]];
-        }
-    }
-
-    // debbuging message
-    // if (myRank == 0) {
-    //     printf("Expecting %d doubles from each of the %d processes to put in a %dx%d matrix...\n", local_n*local_m, numProcs, n, m);
-    // }
+    MPI_Datatype block_t;
+    MPI_Type_vector(local_m, local_n, local_n+2, MPI_DOUBLE, &block_t);
+    MPI_Type_commit(&block_t);
     
     // gather all the u-matrices in the u_all matrix and get ready to reassemble it
-    int ret = MPI_Gather(u_old_send, local_m*local_n, MPI_DOUBLE, u_all, local_m*local_n, MPI_DOUBLE, 0, comm_cart);
-    // printf("Process %d says hello\n", myRank);
-    // u_old holds the solution after the most recent buffers swap
+    if (myRank == 0)
+    {
+        // total_n = local_n * (int)ceil(sqrt((double)numProcs));
+        // total_m = local_m * (int)ceil(sqrt((double)numProcs));
+        u_all = (double *)calloc(n * m, sizeof(double)); // u_all : Global solution array
+    }
+    int ret = MPI_Gather(&u_old[local_n+3], 1, block_t, u_all, 1, block_t, 0, comm_cart);
+    free(u_old);
+    printf("Process %d says hello after gather\n", myRank);
     
     if (myRank == 0) {
+        
         #define INDEX(y) (y*(n+2))
 
         double *u_final = calloc((n+2)*(m+2), sizeof(double));
 
+        printf("Root starting reassembly\n");
         int index = 0;
         // Let the root process re-assemble the matrix.
         for (int x = 1; x < n+1; x+=local_n) {  // traverse blocks in the x axis
             for (int y = 1; y < m+1; y++) {     // traverse blocks in the y axis
                 // debug msg
                 // printf("Adding at index %d, from %d\n", INDEX(y)+x, index);
-                
+
                 memcpy(&u_final[INDEX(y)+x], &u_all[index], local_n*sizeof(double));
                 // continue to the next local_n elements that are construct a part of the next row
                 index += local_n; 
             }
         }
-
+        printf("Root done with reassembly\n");
+        free(u_all);
+        printf("freed u_all\n");
         double absoluteError = checkSolution(xLeft, yBottom,
                                          n + 2, m + 2,
                                          u_final,

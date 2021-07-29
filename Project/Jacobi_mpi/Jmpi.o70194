@@ -1,0 +1,10 @@
+-> 3360, 3360, 0.8, 1, 1e-13, 50
+Iterations= 50 Elapsed MPI Wall time is 2.615421
+Time taken 2 seconds 600 milliseconds
+Residual 8.4286e-11
+Process 1 says hello after gather
+Finilization 1
+Process 2 says hello after gather
+Finilization 2
+Process 3 says hello after gather
+Finilization 3

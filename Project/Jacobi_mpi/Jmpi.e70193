@@ -1,0 +1,21 @@
+munmap_chunk(): invalid pointer
+[argo-c1:222119] *** Process received signal ***
+[argo-c1:222119] Signal: Aborted (6)
+[argo-c1:222119] Signal code:  (-6)
+[argo-c1:222119] [ 0] /lib64/libpthread.so.0(+0x12b20)[0x14ddc4552b20]
+[argo-c1:222119] [ 1] /lib64/libc.so.6(gsignal+0x10f)[0x14ddc41b47ff]
+[argo-c1:222119] [ 2] /lib64/libc.so.6(abort+0x127)[0x14ddc419ec35]
+[argo-c1:222119] [ 3] /lib64/libc.so.6(+0x7a987)[0x14ddc41f7987]
+[argo-c1:222119] [ 4] /lib64/libc.so.6(+0x81d8c)[0x14ddc41fed8c]
+[argo-c1:222119] [ 5] /lib64/libc.so.6(+0x8203c)[0x14ddc41ff03c]
+[argo-c1:222119] [ 6] jacobi_mpi.x[0x4027d7]
+[argo-c1:222119] [ 7] /lib64/libc.so.6(__libc_start_main+0xf3)[0x14ddc41a07b3]
+[argo-c1:222119] [ 8] jacobi_mpi.x[0x402cae]
+[argo-c1:222119] *** End of error message ***
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun noticed that process rank 0 with PID 0 on node argo-c1 exited on signal 6 (Aborted).
+--------------------------------------------------------------------------
