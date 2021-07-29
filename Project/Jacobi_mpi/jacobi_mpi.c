@@ -144,15 +144,10 @@ int main(int argc, char **argv)
     MPI_Type_vector(local_n, 1, local_m+2, MPI_DOUBLE, &col_t);
     MPI_Type_commit(&col_t);
 
-<<<<<<< HEAD
     if (myRank == 0) {
         // total_n = local_n * (int)ceil(sqrt((double)numProcs));
         // total_m = local_m * (int)ceil(sqrt((double)numProcs));
         u_all = (double *) calloc(n * m, sizeof(double));  // u_all : Global solution array
-=======
-    if (myRank == 0) {  // TODO: Maybe move the calloc of u_all right before the RE-ASSEMBLY, and after we free u or u_old for better mem management.
-        u_all = (double *) calloc((n+2) * (m+2), sizeof(double));  // u_all : Global solution array
->>>>>>> 6254ea9a7f5e8f8ac58c7310b0ae9554a5d31745
     }
 
     // Store worker blocks in u, u_old
@@ -174,8 +169,8 @@ int main(int argc, char **argv)
     double xLeft = -1.0, xRight = 1.0;
     double yBottom = -1.0, yUp = 1.0;
 
-    double deltaX = (xRight - xLeft) / (n - 1);
-    double deltaY = (yUp - yBottom) / (m - 1);
+    double deltaX = (xRight - xLeft) / (local_n - 1);
+    double deltaY = (yUp - yBottom) / (local_m - 1);
 
     iterationCount = 0;
     error = HUGE_VAL;
@@ -352,54 +347,6 @@ int main(int argc, char **argv)
         printf("Residual %g\n", error);
     }
 
-<<<<<<< HEAD
-    // TODO: Re-assemble u_all
-
-    // Define Block datatype
-    // Block is (supposed to be) the initial local_n x local_m matrix,
-    // aka actual elements *without* halo rows/cols
-    // FIX-TODO: sizeof(block_t) == 1 for some reason
-    MPI_Datatype block_t;
-    MPI_Type_vector(local_n, local_m, local_m+2, MPI_DOUBLE, &block_t);
-    MPI_Type_commit(&block_t);
-    double *u_old_send = calloc(local_m*local_n, sizeof(double));
-
-    for (int y = 1; y < local_m + 1; y++) {
-        for (int x = 1; x < local_n + 1; x++) {
-            u_old_send[x - 1 + indices[y-1]] = u_old[ x + indices[y]];
-        }
-    }
-
-    // int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
-    // void *recvbuf, int recvcount, MPI_Datatype recvtype, int root,
-    // MPI_Comm comm)
-
-    // flockfile(stdout);
-    // printf("I am process %d of %d and this is u_old block:\n", myRank, numProcs);
-    // for (int i = 1; i < local_n+1; i++)
-    // {
-    //     for (int j = 1; j < local_m+1; j++)
-    //     {
-    //         printf(" %d.%lf ", myRank, u_old[i*(local_m+1) + j]);
-    //     }
-    //     printf("\n");
-    // }
-    // funlockfile(stdout);
-
-    // printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
-    if (myRank == 0) {printf("Expecting %d doubles from each of the %d processes to put in a %dx%d matrix...\n", local_n*local_m, numProcs, n, m);}
-    int i = MPI_Gather(u_old_send, local_m*local_n, MPI_DOUBLE, u_all, local_m*local_n, MPI_DOUBLE, 0, comm_cart);
-    if (myRank == 0)
-    {
-        for (int i = 0; i < n * m; i++)
-        {
-            printf("%d \n", u_all[i]);
-        }
-    }
-    // printf("i = %d\n", i);
-    // printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
-=======
->>>>>>> 6254ea9a7f5e8f8ac58c7310b0ae9554a5d31745
 
     //  Re-assemble u_all
     if (myRank != 0)  // Workers send their actual (local_n) rows
