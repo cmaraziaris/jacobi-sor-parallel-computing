@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # JobName #
-#PBS -N JseqJacobi
+#PBS -N mpiJacobi
 
 #Which Queue to use #
 #PBS -q N10C80

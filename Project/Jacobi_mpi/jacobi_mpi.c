@@ -35,6 +35,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #include <stdlib.h>
 #include <time.h>
 #include <mpi.h>
@@ -169,9 +170,9 @@ int main(int argc, char **argv)
     double xLeft = -1.0, xRight = 1.0;
     double yBottom = -1.0, yUp = 1.0;
 
-    double deltaX = (xRight - xLeft) / (local_n - 1);
-    double deltaY = (yUp - yBottom) / (local_m - 1);
-
+    double deltaX = (xRight - xLeft) / (n - 1);
+    double deltaY = (yUp - yBottom) / (m - 1);
+    
     iterationCount = 0;
     error = HUGE_VAL;
     clock_t start = clock(), diff;
@@ -185,14 +186,14 @@ int main(int argc, char **argv)
     double cy = 1.0 / (deltaY * deltaY);
     double cc = -2.0 * (cx + cy) - alpha;
     double div_cc = 1.0 / cc;
-    double cx_cc = 1.0 / (deltaX * deltaX) * div_cc;
-    double cy_cc = 1.0 / (deltaY * deltaY) * div_cc;
+    double cx_cc = cx * div_cc;
+    double cy_cc = cy * div_cc;
     double c1 = (2.0 + alpha) * div_cc;
     double c2 = 2.0 * div_cc;
 
     double fX_sq[local_n], fY_sq[local_m], updateVal;
 
-    // Optimize
+    // Optimize by using arrays to keep indexing values
     for (int x = 0; x < local_n; x++) {
         fX_sq[x] = (xLeft + x * deltaX) * (xLeft + x * deltaX);
     }
@@ -228,19 +229,19 @@ int main(int argc, char **argv)
         MPI_Request req_send[4], req_recv[4];
 
         // TODO halo swap --> check this on paper
-        MPI_Irecv(&u[1], 1, row_t, north, tag, comm_cart, &req_recv[0]);
-        MPI_Irecv(&u[(local_m+2)*(local_n+1)+1], 1, row_t, south, tag, comm_cart, &req_recv[1]);
-        MPI_Irecv(&u[local_m + 2], 1, col_t, west, tag, comm_cart, &req_recv[2]);
-        MPI_Irecv(&u[local_m + 2 + local_m + 1], 1, col_t, east, tag, comm_cart, &req_recv[3]);
+        MPI_Irecv(&u_old[1], 1, row_t, north, tag, comm_cart, &req_recv[0]);
+        MPI_Irecv(&u_old[(local_m + 2) * (local_n + 1) + 1], 1, row_t, south, tag, comm_cart, &req_recv[1]);
+        MPI_Irecv(&u_old[local_m + 2], 1, col_t, west, tag, comm_cart, &req_recv[2]);
+        MPI_Irecv(&u_old[local_m + 2 + local_m + 1], 1, col_t, east, tag, comm_cart, &req_recv[3]);
 
-        MPI_Isend(&u[local_m + 2 + 1], 1, row_t, north, tag, comm_cart, &req_send[0]);
-        MPI_Isend(&u[(local_m+2) * (local_n) + 1], 1, row_t, south, tag, comm_cart, &req_send[1]);
-        MPI_Isend(&u[local_m + 2 + 1], 1, col_t, west, tag, comm_cart, &req_send[2]);
-        MPI_Isend(&u[local_m + 2 + local_m], 1, col_t, east, tag, comm_cart, &req_send[3]);
+        MPI_Isend(&u_old[local_m + 2 + 1], 1, row_t, north, tag, comm_cart, &req_send[0]);
+        MPI_Isend(&u_old[(local_m + 2) * (local_n) + 1], 1, row_t, south, tag, comm_cart, &req_send[1]);
+        MPI_Isend(&u_old[local_m + 2 + 1], 1, col_t, west, tag, comm_cart, &req_send[2]);
+        MPI_Isend(&u_old[local_m + 2 + local_m], 1, col_t, east, tag, comm_cart, &req_send[3]);
 
-// int MPI_Irecv( void* buf, int count,  MPI_Datatype datatype,  int source, int tag, MPI_Comm comm,  MPI_Request *request)
+        // int MPI_Irecv( void* buf, int count,  MPI_Datatype datatype,  int source, int tag, MPI_Comm comm,  MPI_Request *request)
 
-        // TODO: Calculate inner values
+        // Calculate inner values
         for (int y = 2; y < (maxYCount - 2); y++)
         {
             for (int x = 2; x < (maxXCount - 2); x++)
@@ -248,7 +249,7 @@ int main(int argc, char **argv)
                 double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
                 updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                            (u_old[indices[y - 1] + x] + u_old[indices[y + 1] + x]) * cy_cc +
                             u_old[indices[y] + x] +
                             c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
@@ -260,7 +261,7 @@ int main(int argc, char **argv)
         // Make sure we got the Halos from the neighbours
         MPI_Waitall(4, req_recv, MPI_STATUSES_IGNORE);
 
-        //TODO: Calculate outer values
+        // Calculate outer values
 
         // for x from 1 to maxXCount-2
         // y = 1
@@ -272,7 +273,7 @@ int main(int argc, char **argv)
             double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
             updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                        (u_old[indices[y - 1] + x] + u_old[indices[y + 1] + x]) * cy_cc +
                         u_old[indices[y] + x] +
                         c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
@@ -283,7 +284,7 @@ int main(int argc, char **argv)
             fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
             updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                        (u_old[indices[y - 1] + x] + u_old[indices[y + 1] + x]) * cy_cc +
                         u_old[indices[y] + x] +
                         c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
@@ -301,7 +302,7 @@ int main(int argc, char **argv)
             double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
             updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                        (u_old[indices[y - 1] + x] + u_old[indices[y + 1] + x]) * cy_cc +
                         u_old[indices[y] + x] +
                         c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
@@ -312,7 +313,7 @@ int main(int argc, char **argv)
             fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
             updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                        (u_old[indices[y - 1] + x] + u_old[indices[y + 1] + x]) * cy_cc +
                         u_old[indices[y] + x] +
                         c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
@@ -320,16 +321,16 @@ int main(int argc, char **argv)
             error += updateVal * updateVal;
         }
 
-        // Swap the buffers
-        tmp = u_old;
-        u_old = u;
-        u = tmp;
-
         // all reduce - to sum errors for all processes
         MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
         error = sqrt(error_sum) / (n * m);
 
         MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);
+
+        // Swap the buffers
+        tmp = u_old;
+        u_old = u;
+        u = tmp;
     }
 
     t2 = MPI_Wtime();
@@ -359,58 +360,45 @@ int main(int argc, char **argv)
     MPI_Type_commit(&block_t);
     double *u_old_send = calloc(local_m*local_n, sizeof(double));
 
+    // remove all the halos and send the array
     for (int y = 1; y < local_m + 1; y++) {
         for (int x = 1; x < local_n + 1; x++) {
             u_old_send[x - 1 + indices[y-1]] = u_old[ x + indices[y]];
         }
     }
+    // free(u_old);
 
-    // int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
-    // void *recvbuf, int recvcount, MPI_Datatype recvtype, int root,
-    // MPI_Comm comm)
-
-    // flockfile(stdout);
-    // printf("I am process %d of %d and this is u_old block:\n", myRank, numProcs);
-    // for (int i = 1; i < local_n+1; i++)
-    // {
-    //     for (int j = 1; j < local_m+1; j++)
-    //     {
-    //         printf(" %d.%lf ", myRank, u_old[i*(local_m+1) + j]);
-    //     }
-    //     printf("\n");
+    // debbuging message
+    // if (myRank == 0) {
+    //     printf("Expecting %d doubles from each of the %d processes to put in a %dx%d matrix...\n", local_n*local_m, numProcs, n, m);
     // }
-    // funlockfile(stdout);
-
-    // printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
-    if (myRank == 0) {printf("Expecting %d doubles from each of the %d processes to put in a %dx%d matrix...\n", local_n*local_m, numProcs, n, m);}
-    int i = MPI_Gather(u_old_send, local_m*local_n, MPI_DOUBLE, u_all, local_m*local_n, MPI_DOUBLE, 0, comm_cart);
-    if (myRank == 0)
-    {
-        for (int i = 0; i < n * m; i++)
-        {
-            printf("%d \n", u_all[i]);
-        }
-    }
-    // printf("i = %d\n", i);
-    // printf("\n\nHello from rank: %d out of %d\n\n", myRank, numProcs);
-
-
+    
+    // gather all the u-matrices in the u_all matrix and get ready to reassemble it
+    int ret = MPI_Gather(u_old_send, local_m*local_n, MPI_DOUBLE, u_all, local_m*local_n, MPI_DOUBLE, 0, comm_cart);
+    // free(u_old_send);
+    printf("Process %d says hello\n", myRank);
     // u_old holds the solution after the most recent buffers swap
-    if (myRank == 0)
-    {
-        // printf("This is Rank 0 and this is u_all:\n");
-        // for (int i = 0; i < n; i++)
-        // {
-        //     for (int j = 0; j < m; j++)
-        //     {
-        //         printf(" 666.%lf ", u_all[i * m + j]);
-        //     }
-        //     printf("\n");
-        // }
-        
+    if (myRank == 0) {
+        #define INDEX(y) (y*(n+2))
+
+        double *u_final = calloc((n+2)*(m+2), sizeof(double));
+
+        int index = 0;
+        // Let the root process re-assemble the matrix.
+        for (int x = 1; x < n+1; x+=local_n) {  // traverse blocks in the x axis
+            for (int y = 1; y < m+1; y++) {     // traverse blocks in the y axis
+                // debug msg
+                // printf("Adding at index %d, from %d\n", INDEX(y)+x, index);
+                
+                memcpy(&u_final[INDEX(y)+x], &u_all[index], local_n*sizeof(double));
+                // continue to the next local_n elements that are construct a part of the next row
+                index += local_n; 
+            }
+        }
+
         double absoluteError = checkSolution(xLeft, yBottom,
                                          n + 2, m + 2,
-                                         u_all,
+                                         u_final,
                                          deltaX, deltaY,
                                          alpha);
         printf("The error of the iterative solution is %g\n", absoluteError);
@@ -419,7 +407,3 @@ int main(int argc, char **argv)
     MPI_Finalize();
     return 0;
 }
-
-// TODO: Trwei SEG, na dokimasw me:
-//    MPI_Finalize();
-//    exit(0);
