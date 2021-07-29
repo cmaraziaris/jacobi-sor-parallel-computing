@@ -157,17 +157,30 @@ int main(int argc, char **argv)
 
 
     // Install persistent communication handles
-    MPI_Request req_send[4], req_recv[4];
+    MPI_Request req_send_u_old[4], req_recv_u_old[4], req_send_u[4], req_recv_u[4];
+    MPI_Request *req_send = req_send_u_old, *req_recv = req_recv_u_old;
 
-    MPI_Recv_init(&u_old[1], 1, row_t, north, tag, comm_cart, &req_recv[0]);
-    MPI_Recv_init(&u_old[(local_m+2)*(local_n+1)+1], 1, row_t, south, tag, comm_cart, &req_recv[1]);
-    MPI_Recv_init(&u_old[local_m + 2], 1, col_t, west, tag, comm_cart, &req_recv[2]);
-    MPI_Recv_init(&u_old[local_m + 2 + local_m + 1], 1, col_t, east, tag, comm_cart, &req_recv[3]);
+    // Persistent comms targeting u_old
+    MPI_Recv_init(&u_old[1], 1, row_t, north, tag, comm_cart, &req_recv_u_old[0]);
+    MPI_Recv_init(&u_old[(local_m+2)*(local_n+1)+1], 1, row_t, south, tag, comm_cart, &req_recv_u_old[1]);
+    MPI_Recv_init(&u_old[local_m + 2], 1, col_t, west, tag, comm_cart, &req_recv_u_old[2]);
+    MPI_Recv_init(&u_old[local_m + 2 + local_m + 1], 1, col_t, east, tag, comm_cart, &req_recv_u_old[3]);
 
-    MPI_Send_init(&u_old[local_m + 2 + 1], 1, row_t, north, tag, comm_cart, &req_send[0]);
-    MPI_Send_init(&u_old[(local_m+2) * (local_n) + 1], 1, row_t, south, tag, comm_cart, &req_send[1]);
-    MPI_Send_init(&u_old[local_m + 2 + 1], 1, col_t, west, tag, comm_cart, &req_send[2]);
-    MPI_Send_init(&u_old[local_m + 2 + local_m], 1, col_t, east, tag, comm_cart, &req_send[3]);
+    MPI_Send_init(&u_old[local_m + 2 + 1], 1, row_t, north, tag, comm_cart, &req_send_u_old[0]);
+    MPI_Send_init(&u_old[(local_m+2) * (local_n) + 1], 1, row_t, south, tag, comm_cart, &req_send_u_old[1]);
+    MPI_Send_init(&u_old[local_m + 2 + 1], 1, col_t, west, tag, comm_cart, &req_send_u_old[2]);
+    MPI_Send_init(&u_old[local_m + 2 + local_m], 1, col_t, east, tag, comm_cart, &req_send_u_old[3]);
+
+    // Persistent comms targeting u
+    MPI_Recv_init(&u[1], 1, row_t, north, tag, comm_cart, &req_recv_u[0]);
+    MPI_Recv_init(&u[(local_m+2)*(local_n+1)+1], 1, row_t, south, tag, comm_cart, &req_recv_u[1]);
+    MPI_Recv_init(&u[local_m + 2], 1, col_t, west, tag, comm_cart, &req_recv_u[2]);
+    MPI_Recv_init(&u[local_m + 2 + local_m + 1], 1, col_t, east, tag, comm_cart, &req_recv_u[3]);
+
+    MPI_Send_init(&u[local_m + 2 + 1], 1, row_t, north, tag, comm_cart, &req_send_u[0]);
+    MPI_Send_init(&u[(local_m+2) * (local_n) + 1], 1, row_t, south, tag, comm_cart, &req_send_u[1]);
+    MPI_Send_init(&u[local_m + 2 + 1], 1, col_t, west, tag, comm_cart, &req_send_u[2]);
+    MPI_Send_init(&u[local_m + 2 + local_m], 1, col_t, east, tag, comm_cart, &req_send_u[3]);
 
     ///////////////////////////
 
@@ -181,88 +194,63 @@ int main(int argc, char **argv)
     double deltaX = (xRight - xLeft) / (n - 1);
     double deltaY = (yUp - yBottom) / (m - 1);
 
+    iterationCount = 0;
+    error = HUGE_VAL;
+    clock_t start = clock(), diff;
+
+    t1 = MPI_Wtime();
+
+    int maxXCount = local_n + 2;
+    int maxYCount = local_m + 2;
+
+    double cx = 1.0 / (deltaX * deltaX);
+    double cy = 1.0 / (deltaY * deltaY);
+    double cc = -2.0 * (cx + cy) - alpha;
+    double div_cc = 1.0 / cc;
+    double cx_cc = 1.0 / (deltaX * deltaX) * div_cc;
+    double cy_cc = 1.0 / (deltaY * deltaY) * div_cc;
+    double c1 = (2.0 + alpha) * div_cc;
+    double c2 = 2.0 * div_cc;
+
+    double fX_sq[local_n], fY_sq[local_m], updateVal;
+
+    // Optimize
+    for (int x = 0; x < local_n; x++) {
+        fX_sq[x] = (xLeft + x * deltaX) * (xLeft + x * deltaX);
+    }
+    for (int y = 0; y < local_m; y++) {
+        fY_sq[y] = (yBottom + y * deltaY) * (yBottom + y * deltaY);
+    }
+
+    int indices[maxYCount];
+    for (int i = 0; i < maxYCount; i++) {
+        indices[i] = i * maxXCount;
+    }
+
+    /* Iterate as long as it takes to meet the convergence criterion */
+    while (iterationCount < maxIterationCount && error > maxAcceptableError)
     {
-        iterationCount = 0;
-        error = HUGE_VAL;
-        clock_t start = clock(), diff;
+        iterationCount++;
 
-        t1 = MPI_Wtime();
+        /*************************************************************
+         * Performs one iteration of the Jacobi method and computes
+         * the residual value.
+         *
+         * NOTE: u(0,*), u(maxXCount-1,*), u(*,0) and u(*,maxYCount-1)
+         * are BOUNDARIES and therefore not part of the solution.
+         *************************************************************/
 
-        int maxXCount = local_n + 2;
-        int maxYCount = local_m + 2;
+        error = 0.0;
 
-        double cx = 1.0 / (deltaX * deltaX);
-        double cy = 1.0 / (deltaY * deltaY);
-        double cc = -2.0 * (cx + cy) - alpha;
-        double div_cc = 1.0 / cc;
-        double cx_cc = 1.0 / (deltaX * deltaX) * div_cc;
-        double cy_cc = 1.0 / (deltaY * deltaY) * div_cc;
-        double c1 = (2.0 + alpha) * div_cc;
-        double c2 = 2.0 * div_cc;
+        // Begin Halo swap
+        MPI_Startall(4, req_recv);
+        MPI_Startall(4, req_send);
 
-        double fX_sq[local_n], fY_sq[local_m], updateVal;
-
-        // Optimize
-        for (int x = 0; x < local_n; x++) {
-            fX_sq[x] = (xLeft + x * deltaX) * (xLeft + x * deltaX);
-        }
-        for (int y = 0; y < local_m; y++) {
-            fY_sq[y] = (yBottom + y * deltaY) * (yBottom + y * deltaY);
-        }
-
-        int indices[maxYCount];
-        for (int i = 0; i < maxYCount; i++) {
-            indices[i] = i * maxXCount;
-        }
-
-        /* Iterate as long as it takes to meet the convergence criterion */
-        while (iterationCount < maxIterationCount && error > maxAcceptableError)
+        // Calculate inner values
+        for (int y = 2; y < (maxYCount - 2); y++)
         {
-            iterationCount++;
-
-            /*************************************************************
-             * Performs one iteration of the Jacobi method and computes
-             * the residual value.
-             *
-             * NOTE: u(0,*), u(maxXCount-1,*), u(*,0) and u(*,maxYCount-1)
-             * are BOUNDARIES and therefore not part of the solution.
-             *************************************************************/
-
-            error = 0.0;
-
-            // Begin Halo swap
-            MPI_Startall(4, req_recv);
-            MPI_Startall(4, req_send);
-
-            // Calculate inner values
-            for (int y = 2; y < (maxYCount - 2); y++)
+            for (int x = 2; x < (maxXCount - 2); x++)
             {
-                for (int x = 2; x < (maxXCount - 2); x++)
-                {
-                    double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-
-                    updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                                (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                                u_old[indices[y] + x] +
-                                c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-                    u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
-                    error += updateVal * updateVal;
-                }
-            }
-
-            // Make sure we got the Halos from the neighbours
-            MPI_Waitall(4, req_recv, MPI_STATUSES_IGNORE);
-
-            // Calculate outer values
-
-            // for x from 1 to maxXCount-2
-            // y = 1
-            // y = maxYCount - 2
-            // estimate outer rows
-            for (int x = 1; x < (maxXCount - 1); x++)
-            {
-                int y = 1;
                 double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
                 updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
@@ -272,77 +260,102 @@ int main(int argc, char **argv)
 
                 u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
                 error += updateVal * updateVal;
-
-                y = maxYCount - 2;
-                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-
-                updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                            u_old[indices[y] + x] +
-                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-                u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
-                error += updateVal * updateVal;
             }
-
-            // for y from 1 to maxYCount-2
-            // x = 1
-            // x = maxXCount - 2
-            // estimate outer columns
-            for (int y = 1; y < (maxYCount - 1); y++)
-            {
-                int x = 1;
-                double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-
-                updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                            u_old[indices[y] + x] +
-                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-                u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
-                error += updateVal * updateVal;
-
-                x = maxXCount - 2;
-                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-
-                updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                            u_old[indices[y] + x] +
-                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-                u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
-                error += updateVal * updateVal;
-            }
-
-            // all reduce - to sum errors for all processes
-            MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
-            error = sqrt(error_sum) / (n * m);
-
-            MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);
-
-            // Swap the buffers
-            tmp = u_old;
-            u_old = u;
-            u = tmp;
         }
 
-        t2 = MPI_Wtime();
-        if (myRank == 0) {
-            printf("Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount, t2 - t1);
+        // Make sure we got the Halos from the neighbours
+        MPI_Waitall(4, req_recv, MPI_STATUSES_IGNORE);
+
+        // Calculate outer values
+
+        // for x from 1 to maxXCount-2
+        // y = 1
+        // y = maxYCount - 2
+        // estimate outer rows
+        for (int x = 1; x < (maxXCount - 1); x++)
+        {
+            int y = 1;
+            double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+
+            updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
+                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                        u_old[indices[y] + x] +
+                        c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+
+            u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
+            error += updateVal * updateVal;
+
+            y = maxYCount - 2;
+            fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+
+            updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
+                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                        u_old[indices[y] + x] +
+                        c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+
+            u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
+            error += updateVal * updateVal;
         }
 
-        diff = clock() - start;
-        int msec = diff * 1000 / CLOCKS_PER_SEC;
-        int max_msec;
+        // for y from 1 to maxYCount-2
+        // x = 1
+        // x = maxXCount - 2
+        // estimate outer columns
+        for (int y = 1; y < (maxYCount - 1); y++)
+        {
+            int x = 1;
+            double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
-        // Get the maximum time among every process-worker
-        MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MAX, 0, comm_cart);
+            updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
+                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                        u_old[indices[y] + x] +
+                        c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
-        if (myRank == 0) {
-            printf("Time taken %d seconds %d milliseconds\n", msec / 1000, msec % 1000);
-            printf("Residual %g\n", error);
+            u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
+            error += updateVal * updateVal;
+
+            x = maxXCount - 2;
+            fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+
+            updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
+                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                        u_old[indices[y] + x] +
+                        c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+
+            u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
+            error += updateVal * updateVal;
         }
 
+        // all reduce - to sum errors for all processes
+        MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
+        error = sqrt(error_sum) / (n * m);
+
+        MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);
+
+        // Swap the buffers
+        tmp = u_old;
+        u_old = u;
+        u = tmp;
+
+        req_recv = (req_recv == req_recv_u_old) ? req_recv_u : req_recv_u_old;
+        req_send = (req_send == req_send_u_old) ? req_send_u : req_send_u_old;
+    }
+
+    t2 = MPI_Wtime();
+    if (myRank == 0) {
+        printf("Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount, t2 - t1);
+    }
+
+    diff = clock() - start;
+    int msec = diff * 1000 / CLOCKS_PER_SEC;
+    int max_msec;
+
+    // Get the maximum time among every process-worker
+    MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MAX, 0, comm_cart);
+
+    if (myRank == 0) {
+        printf("Time taken %d seconds %d milliseconds\n", msec / 1000, msec % 1000);
+        printf("Residual %g\n", error);
     }
 
     free(u);
