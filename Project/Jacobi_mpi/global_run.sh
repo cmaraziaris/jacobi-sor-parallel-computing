@@ -82,6 +82,7 @@ final_sh_input="$shell_c\n\n$job_name_c\n$queue_c\n$wall_time_c\n$nodes_c\n$work
 RANDOM_NAME="$RANDOM"
 
 # Run actual commands
+printf "$array_size,$array_size\n0.8\n1.0\n1e-13\n50\n" > input
 printf "$final_sh_input" > my_PBS_script_${RANDOM_NAME}.sh
 sleep 2
 qsub my_PBS_script_${RANDOM_NAME}.sh
