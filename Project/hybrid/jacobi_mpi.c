@@ -39,6 +39,7 @@
 #include <string.h>
 #include <time.h>
 #include <mpi.h>
+#include <omp.h>
 
 /**********************************************************
  * Checks the error between numerical and exact solutions
@@ -202,6 +203,7 @@ int main(int argc, char **argv)
 
     int maxXCount = local_n + 2;
     int maxYCount = local_m + 2;
+    int indices[maxYCount];
 
     double cx = 1.0 / (deltaX * deltaX);
     double cy = 1.0 / (deltaY * deltaY);
@@ -215,131 +217,161 @@ int main(int argc, char **argv)
     double fX_sq[local_n], fY_sq[local_m], updateVal;
 
     // Optimize
-    for (int x = 0; x < local_n; x++) {
-        fX_sq[x] = (xLeft + x * deltaX) * (xLeft + x * deltaX);
-    }
-    for (int y = 0; y < local_m; y++) {
-        fY_sq[y] = (yBottom + y * deltaY) * (yBottom + y * deltaY);
-    }
-
-    int indices[maxYCount];
-    for (int i = 0; i < maxYCount; i++) {
-        indices[i] = i * maxXCount;
-    }
-
-    /* Iterate as long as it takes to meet the convergence criterion */
-    while (iterationCount < maxIterationCount && error > maxAcceptableError)
+    // Begin thread team 
+    # pragma omp parallel shared(error, iterationCount)
     {
-        iterationCount++;
+        int update_val_1, update_val_2;
 
-        /*************************************************************
-         * Performs one iteration of the Jacobi method and computes
-         * the residual value.
-         *
-         * NOTE: u(0,*), u(maxXCount-1,*), u(*,0) and u(*,maxYCount-1)
-         * are BOUNDARIES and therefore not part of the solution.
-         *************************************************************/
+        # pragma omp parallel for
+        for (int x = 0; x < local_n; x++) {
+            fX_sq[x] = (xLeft + x * deltaX) * (xLeft + x * deltaX);
+        }
 
-        error = 0.0;
+        # pragma omp parallel for
+        for (int y = 0; y < local_m; y++) {
+            fY_sq[y] = (yBottom + y * deltaY) * (yBottom + y * deltaY);
+        }
 
-        // Begin Halo swap
-        MPI_Startall(4, req_recv);
-        MPI_Startall(4, req_send);
+        # pragma omp parallel for
+        for (int i = 0; i < maxYCount; i++) {
+            indices[i] = i * maxXCount;
+        }
 
-        // Calculate inner values
-        for (int y = 2; y < (maxYCount - 2); y++)
+        /* Iterate as long as it takes to meet the convergence criterion */
+        while (iterationCount < maxIterationCount && error > maxAcceptableError)
         {
-            for (int x = 2; x < (maxXCount - 2); x++)
-            {
-                double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
-                updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
+            /*************************************************************
+             * Performs one iteration of the Jacobi method and computes
+             * the residual value.
+             *
+             * NOTE: u(0,*), u(maxXCount-1,*), u(*,0) and u(*,maxYCount-1)
+             * are BOUNDARIES and therefore not part of the solution.
+             *************************************************************/
+            // needed cuz of Waitall in the end of the while loop + iterationCount dangers
+            # pragma omp barrier
+
+            # pragma omp single
+            {
+                iterationCount++;
+                error = 0.0;
+                // Begin Halo swap
+                MPI_Startall(4, req_recv);
+                MPI_Startall(4, req_send);
+            }
+
+            // Calculate inner values
+            // NOTE: mallon 8a gami8ei h cache me auto - h kai oxi - check
+            # pragma omp for collapse(2)
+            for (int y = 2; y < (maxYCount - 2); y++)
+            {
+                // NOTE: epeidh diatrexei to x ston 1D array u_old, nomizw einai kalytera na parallhlopoihsoume to inner apo to outer
+                // TODO: Check an ginetai na parallhlopoihsoume kai ta 2 at once (dyskolo?)
+                // TODO2: vasika etsi opws einai 8a paroume peaki an ola pane na ektelesoun to for - wtf me ta nested loops
+                // # pragma omp for
+                for (int x = 2; x < (maxXCount - 2); x++)
+                {
+                    double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+
+                    update_val_1 = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
+                                (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                                u_old[indices[y] + x] +
+                                c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+
+                    u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_1;
+                    # pragma omp atomic
+                    error += update_val_1 * update_val_1;
+                }
+            }
+
+            // Make sure we got the Halos from the neighbours
+            # pragma omp single
+            MPI_Waitall(4, req_recv, MPI_STATUSES_IGNORE);
+            # pragma omp barrier
+
+            // Calculate outer values
+
+            // for x from 1 to maxXCount-2
+            // y = 1
+            // y = maxYCount - 2
+            // estimate outer rows
+            # pragma omp for
+            for (int x = 1; x < (maxXCount - 1); x++)
+            {
+                int y = 1;
+                double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];  // NOTE: mallon kalo 8a htan na vgaloume to definition apo to eswteriko tou loop
+                                                                    // afou nomizw oti kanei kai +/-8 to stack sto definition -> extra ASM entoles se ka8e loop iter
+                update_val_1 = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
                             (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
                             u_old[indices[y] + x] +
                             c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
-                u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
-                error += updateVal * updateVal;
+                u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_1;
+                // error += updateVal * updateVal;
+
+                y = maxYCount - 2;
+                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+
+                update_val_2 = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
+                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                            u_old[indices[y] + x] +
+                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+
+                u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_2;
+                # pragma omp atomic
+                error += update_val_1 * update_val_1 + update_val_2 * update_val_2;
+            }
+
+            // for y from 1 to maxYCount-2
+            // x = 1
+            // x = maxXCount - 2
+            // estimate outer columns
+            # pragma omp for
+            for (int y = 1; y < (maxYCount - 1); y++)
+            {
+                int x = 1;
+                double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+
+                update_val_1 = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
+                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                            u_old[indices[y] + x] +
+                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+
+                u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_1;
+                // error += update_val_1 * update_val_1;
+
+                x = maxXCount - 2;
+                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+
+                update_val_2 = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
+                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
+                            u_old[indices[y] + x] +
+                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+
+                u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_2;
+
+                # pragma omp atomic
+                error += update_val_1 * update_val_1 + update_val_2 * update_val_2;
+            }
+
+            # pragma omp single
+            {
+                // all reduce - to sum errors for all processes
+                MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
+                error = sqrt(error_sum) / (n * m);
+
+                // Swap the buffers
+                tmp = u_old;
+                u_old = u;
+                u = tmp;
+
+                MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);
+
+                req_recv = (req_recv == req_recv_u_old) ? req_recv_u : req_recv_u_old;
+                req_send = (req_send == req_send_u_old) ? req_send_u : req_send_u_old;
             }
         }
-
-        // Make sure we got the Halos from the neighbours
-        MPI_Waitall(4, req_recv, MPI_STATUSES_IGNORE);
-
-        // Calculate outer values
-
-        // for x from 1 to maxXCount-2
-        // y = 1
-        // y = maxYCount - 2
-        // estimate outer rows
-        for (int x = 1; x < (maxXCount - 1); x++)
-        {
-            int y = 1;
-            double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-
-            updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                        u_old[indices[y] + x] +
-                        c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-            u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
-            error += updateVal * updateVal;
-
-            y = maxYCount - 2;
-            fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-
-            updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                        u_old[indices[y] + x] +
-                        c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-            u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
-            error += updateVal * updateVal;
-        }
-
-        // for y from 1 to maxYCount-2
-        // x = 1
-        // x = maxXCount - 2
-        // estimate outer columns
-        for (int y = 1; y < (maxYCount - 1); y++)
-        {
-            int x = 1;
-            double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-
-            updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                        u_old[indices[y] + x] +
-                        c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-            u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
-            error += updateVal * updateVal;
-
-            x = maxXCount - 2;
-            fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-
-            updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                        (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                        u_old[indices[y] + x] +
-                        c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-            u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
-            error += updateVal * updateVal;
-        }
-
-        // all reduce - to sum errors for all processes
-        MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
-        error = sqrt(error_sum) / (n * m);
-
-        MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);
-
-        // Swap the buffers
-        tmp = u_old;
-        u_old = u;
-        u = tmp;
-
-        req_recv = (req_recv == req_recv_u_old) ? req_recv_u : req_recv_u_old;
-        req_send = (req_send == req_send_u_old) ? req_send_u : req_send_u_old;
-    }
+    }  // end parallel
 
     t2 = MPI_Wtime();
     if (myRank == 0) {

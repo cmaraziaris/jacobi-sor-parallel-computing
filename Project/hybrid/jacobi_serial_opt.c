@@ -89,8 +89,6 @@ int main(int argc, char **argv)
 
     printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, tol, mits);
 
-    n = m = 4;
-
     allocCount = (n + 2) * (m + 2);
     // Those two calls also zero the boundary elements
     u = (double *)calloc(allocCount, sizeof(double)); //reverse order
@@ -147,37 +145,6 @@ int main(int argc, char **argv)
         indices[i] = i * maxXCount;
     }
     
-    u_old[7] = 5;
-    u_old[8] = 6;
-    u_old[9] = 21;
-    u_old[10] = 22;
-    u_old[13] = 9;
-    u_old[14] = 10;
-    u_old[15] = 25;
-    u_old[16] = 26;
-    u_old[19] = 37;
-    u_old[20] = 38;
-    u_old[21] = 53;
-    u_old[22] = 54;
-    u_old[25] = 41;
-    u_old[26] = 42;
-    u_old[27] = 57;
-    u_old[28] = 58;
-
-    printf("\n\n_____Printing u_old_____\n\n");
-    for (int i = 0; i < n+2; i++)
-    {
-        printf("Row %d: ", i);
-        for (int j = 0; j < m+2; j++)
-        {
-            printf( "|%10lf ", u_old[i * (m+2) + j]);
-        }
-        printf("|\n");
-    }
-
-    u = u_old;
-
-    // error = 0.0;
 
     /* Iterate as long as it takes to meet the convergence criterion */
     while (iterationCount < maxIterationCount && error > maxAcceptableError)
@@ -226,7 +193,7 @@ int main(int argc, char **argv)
     int msec = diff * 1000 / CLOCKS_PER_SEC;
     printf("Time taken %d seconds %d milliseconds\n", msec / 1000, msec % 1000);
     printf("Residual %g\n", error);
-    
+
     // u_old holds the solution after the most recent buffers swap
     double absoluteError = checkSolution(xLeft, yBottom,
                                          n + 2, m + 2,
@@ -234,17 +201,6 @@ int main(int argc, char **argv)
                                          deltaX, deltaY,
                                          alpha);
     printf("The error of the iterative solution is %g\n", absoluteError);
-    
-    printf("\n\n_____Printing u_old_____\n\n");
-    for (int i = 0; i < n+2; i++)
-    {
-        printf("Row %d: ", i);
-        for (int j = 0; j < m+2; j++)
-        {
-            printf( "|%10lf ", u_old[i * (m+2) + j]);
-        }
-        printf("|\n");
-    }
 
     return 0;
 }
