@@ -64,7 +64,8 @@ double checkSolution(double xStart, double yStart,
             error += localError * localError;
         }
     }
-    return sqrt(error) / ((maxXCount - 2) * (maxYCount - 2));
+    return error;
+    //return sqrt(error) / ((maxXCount - 2) * (maxYCount - 2));
 }
 
 int main(int argc, char **argv)
@@ -86,14 +87,23 @@ int main(int argc, char **argv)
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
 
+    int dims[2];
+    if (numProcs == 80)
+    {
+        dims[0] = 8;
+        dims[1] = 10;
+    }
+    else
+    {
+        dims[0] = dims[1] = (int) sqrt(numProcs);
+    }
+    
     // Create Cartesian topology (NxN)
     MPI_Comm comm_cart;
     
     int periodic[2] = { 0, 0 };
-    int dims[2];
-    dims[0] = dims[1] = (int) sqrt(numProcs);
 
-    fprintf(stderr, "\n%d : %d\n", numProcs, dims[0]);
+    // fprintf(stderr, "\n%d : %d\n", numProcs, dims[0]);
 
     MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periodic, 1, &comm_cart);
     MPI_Comm_rank(comm_cart, &myRank);
@@ -124,9 +134,20 @@ int main(int argc, char **argv)
     MPI_Bcast(&tol, 1, MPI_DOUBLE, 0, comm_cart);
     MPI_Bcast(&mits, 1, MPI_INT, 0, comm_cart);
 
-    // Block dimensions for worker processes is n/sqrt(p) x m/sqrt(p) per process.
-    int local_n = (int) ceil((double)n / sqrt((double)numProcs));
-    int local_m = (int) ceil((double)m / sqrt((double)numProcs));
+    int local_n, local_m;
+    if (numProcs != 80)
+    {
+        // Block dimensions for worker processes is n/sqrt(p) x m/sqrt(p) per process.
+        local_n = (int) ceil((double)n / sqrt((double)numProcs));
+        local_m = (int) ceil((double)m / sqrt((double)numProcs));
+    }
+    else
+    {
+        local_n = n / 8;
+        local_m = m / 10;
+    }
+
+    // printf("\n \n %d local_m : %d local_n: %d\n\n", myRank, local_m, local_n);
 
     // Define Row datatype
     // NOTE: Probably not needed - comms can be done via local_x * MPI_DOUBLE instead of 1 * row_t
@@ -212,7 +233,7 @@ int main(int argc, char **argv)
     double c1 = (2.0 + alpha) * div_cc;
     double c2 = 2.0 * div_cc;
 
-    double fX_sq[local_n], fY_sq[local_m], updateVal;
+    double fX_sq[local_n], fY_sq[local_m], updateVal, fX_dot_fY_sq;
 
     // Optimize
     for (int x = 0; x < local_n; x++) {
@@ -227,8 +248,17 @@ int main(int argc, char **argv)
         indices[i] = i * maxXCount;
     }
 
+    // #ifdef CONVERGE_CHECK_TRUE
+    //     #define CHECK (iterationCount < maxIterationCount && error > maxAcceptableError)
+    // #elif
+
+    // #endif
     /* Iterate as long as it takes to meet the convergence criterion */
-    while (iterationCount < maxIterationCount && error > maxAcceptableError)
+    #ifdef CONVERGE_CHECK_TRUE
+        while (iterationCount < maxIterationCount && error > maxAcceptableError)
+    #else
+        while (iterationCount < maxIterationCount)
+    #endif
     {
         iterationCount++;
 
@@ -251,7 +281,7 @@ int main(int argc, char **argv)
         {
             for (int x = 2; x < (maxXCount - 2); x++)
             {
-                double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
                 updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
                             (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
@@ -275,7 +305,7 @@ int main(int argc, char **argv)
         for (int x = 1; x < (maxXCount - 1); x++)
         {
             int y = 1;
-            double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+            fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
             updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
                         (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
@@ -304,8 +334,8 @@ int main(int argc, char **argv)
         for (int y = 1; y < (maxYCount - 1); y++)
         {
             int x = 1;
-            double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-
+            fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+            // TODO : replace x where needed with constant
             updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
                         (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
                         u_old[indices[y] + x] +
@@ -326,9 +356,11 @@ int main(int argc, char **argv)
             error += updateVal * updateVal;
         }
 
+        #ifdef CONVERGE_CHECK_TRUE
         // all reduce - to sum errors for all processes
         MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
         error = sqrt(error_sum) / (n * m);
+        #endif
 
         MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);
 
@@ -342,23 +374,50 @@ int main(int argc, char **argv)
     }
 
     t2 = MPI_Wtime();
-    if (myRank == 0) {
-        printf("Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount, t2 - t1);
-    }
 
     diff = clock() - start;
     int msec = diff * 1000 / CLOCKS_PER_SEC;
     int max_msec;
 
     // Get the maximum time among every process-worker
-    MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MAX, 0, comm_cart);
+    MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MIN, 0, comm_cart);
+
+    // Get the maximum MPI time among every process-worker
+    double final_time, local_final_time = t2 - t1;
+    MPI_Reduce(&local_final_time, &final_time, 1, MPI_DOUBLE, MPI_MIN, 0, comm_cart);
+
+    #ifndef CONVERGE_CHECK_TRUE
+    // Reduce - to sum errors for all processes
+    MPI_Reduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, 0, comm_cart);
+    error = sqrt(error_sum) / (n * m);
+
+    #endif
 
     if (myRank == 0) {
+        printf("Iterations=%3d\nElapsed MPI Wall time is %f\n", iterationCount, final_time);
         printf("Time taken %d seconds %d milliseconds\n", msec / 1000, msec % 1000);
         printf("Residual %g\n", error);
     }
 
     free(u);
+
+    // Calculate absolute error method #1
+    double absolute_error, local_absolute_error;
+
+    // u_old holds the full local solution
+    local_absolute_error = checkSolution(xLeft, yBottom,
+                                        local_n + 2, local_m + 2,
+                                        u_old,
+                                        deltaX, deltaY,
+                                        alpha);
+    
+    MPI_Reduce(&local_absolute_error, &absolute_error, 1, MPI_DOUBLE, MPI_SUM, 0, comm_cart);
+    absolute_error = sqrt(absolute_error) / (n * m);
+
+    if (myRank == 0)
+        printf("The error of the iterative solution is %g\n", absolute_error);
+
+    // Calculate absolute error method #2
 
     //  Re-assemble u_all (we name it: u_final)
 
@@ -407,7 +466,10 @@ int main(int argc, char **argv)
                                          u_final,
                                          deltaX, deltaY,
                                          alpha);
-        printf("The error of the iterative solution is %g\n", absoluteError);
+        
+        absoluteError = sqrt(absoluteError) / (n * m);
+        printf("The error of the gathered solution is %g\n", absoluteError);
+
         free(u_final);
     }
 
