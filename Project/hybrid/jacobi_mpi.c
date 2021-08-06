@@ -217,8 +217,11 @@ int main(int argc, char **argv)
 
     iterationCount = 0;
     error = HUGE_VAL;
-    clock_t start = clock(), diff;
+    clock_t start, diff;
 
+    MPI_Barrier(comm_cart);
+
+    start = clock();
     t1 = MPI_Wtime();
 
     int maxXCount = local_n + 2;
@@ -235,12 +238,15 @@ int main(int argc, char **argv)
     double c2 = 2.0 * div_cc;
 
     double fX_sq[local_n], fY_sq[local_m], updateVal, fX_dot_fY_sq;
+    double update_val_1, update_val_2;
 
     // Optimize
     // Begin thread team 
-    # pragma omp parallel shared(fX_sq, fY_sq, error, iterationCount) private(fX_dot_fY_sq) 
+    # pragma omp parallel shared(fX_sq, fY_sq, error, iterationCount) \
+                          private(fX_dot_fY_sq, update_val_1, update_val_2) 
     {
-        double update_val_1, update_val_2;
+
+        fprintf(stderr, "Using %d threads.\n", omp_get_num_threads());
 
         # pragma omp for
         for (int x = 0; x < local_n; x++) {
@@ -391,6 +397,10 @@ int main(int argc, char **argv)
                 req_recv = (req_recv == req_recv_u_old) ? req_recv_u : req_recv_u_old;
                 req_send = (req_send == req_send_u_old) ? req_send_u : req_send_u_old;
             }
+            #ifdef CONVERGE_CHECK_TRUE
+            // make sure every thread gets the correct error for the while check
+            # pragma omp barrier
+            #endif
         }
     }  // end parallel
 
@@ -401,11 +411,11 @@ int main(int argc, char **argv)
     int max_msec;
 
     // Get the maximum time among every process-worker
-    MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MIN, 0, comm_cart);
+    MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MAX, 0, comm_cart);
 
     // Get the maximum MPI time among every process-worker
     double final_time, local_final_time = t2 - t1;
-    MPI_Reduce(&local_final_time, &final_time, 1, MPI_DOUBLE, MPI_MIN, 0, comm_cart);
+    MPI_Reduce(&local_final_time, &final_time, 1, MPI_DOUBLE, MPI_MAX, 0, comm_cart);
 
     #ifndef CONVERGE_CHECK_TRUE
     // Reduce - to sum errors for all processes

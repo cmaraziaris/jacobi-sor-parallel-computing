@@ -217,8 +217,11 @@ int main(int argc, char **argv)
 
     iterationCount = 0;
     error = HUGE_VAL;
-    clock_t start = clock(), diff;
+    clock_t start, diff;
 
+    MPI_Barrier(comm_cart);
+
+    start = clock();
     t1 = MPI_Wtime();
 
     int maxXCount = local_n + 2;
@@ -380,11 +383,11 @@ int main(int argc, char **argv)
     int max_msec;
 
     // Get the maximum time among every process-worker
-    MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MIN, 0, comm_cart);
+    MPI_Reduce(&msec, &max_msec, 1, MPI_INT, MPI_MAX, 0, comm_cart);
 
     // Get the maximum MPI time among every process-worker
     double final_time, local_final_time = t2 - t1;
-    MPI_Reduce(&local_final_time, &final_time, 1, MPI_DOUBLE, MPI_MIN, 0, comm_cart);
+    MPI_Reduce(&local_final_time, &final_time, 1, MPI_DOUBLE, MPI_MAX, 0, comm_cart);
 
     #ifndef CONVERGE_CHECK_TRUE
     // Reduce - to sum errors for all processes
