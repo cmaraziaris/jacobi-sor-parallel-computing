@@ -1,7 +1,0 @@
--> 3360, 3360, 0.8, 1, 1e-13, 50
-Iterations= 50 Elapsed MPI Wall time is 1.397599
-Time taken 1 seconds 391 milliseconds
-Residual 3.38062e-10
-Expecting 2822400 doubles from each of the 4 processes to put in a 3360x3360 matrix...
-The error of the iterative solution is 0.00254668
-2 total processes killed (some possibly by mpirun during cleanup)
