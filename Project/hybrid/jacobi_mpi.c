@@ -41,6 +41,8 @@
 #include <mpi.h>
 #include <omp.h>
 
+// #define CONVERGE_CHECK_TRUE "lol"
+
 /**********************************************************
  * Checks the error between numerical and exact solutions
  **********************************************************/
@@ -73,7 +75,7 @@ int main(int argc, char **argv)
     int n, m, mits;
     double alpha, tol, relax;
     double maxAcceptableError;
-    double error;
+    double error, local_error0, local_error1, local_error2;
     double *u, *u_old, *u_all, *tmp;
     int allocCount, localAlloc;
     int iterationCount, maxIterationCount;
@@ -242,7 +244,7 @@ int main(int argc, char **argv)
 
     // Optimize
     // Begin thread team 
-    # pragma omp parallel shared(fX_sq, fY_sq, error, iterationCount) \
+    # pragma omp parallel shared(fX_sq, fY_sq, error, iterationCount, local_error0, local_error1, local_error2) \
                           private(fX_dot_fY_sq, update_val_1, update_val_2) 
     {
 
@@ -270,6 +272,9 @@ int main(int argc, char **argv)
         while (iterationCount < maxIterationCount)
     #endif
         {
+            #ifdef CONVERGE_CHECK_TRUE
+            fprintf(stderr, "CONVERGENCE ENABLED\n");
+            #endif
             /*************************************************************
              * Performs one iteration of the Jacobi method and computes
              * the residual value.
@@ -283,7 +288,7 @@ int main(int argc, char **argv)
             # pragma omp master
             {
                 iterationCount++;
-                error = 0.0;
+                error = local_error0 = local_error1 = local_error2 = 0.0;
                 // Begin Halo swap
                 MPI_Startall(4, req_recv);
                 MPI_Startall(4, req_send);
@@ -293,7 +298,7 @@ int main(int argc, char **argv)
             # pragma omp barrier
 
             // Calculate inner values
-            # pragma omp for collapse(2)
+            # pragma omp for reduction(+:local_error0)
             for (int y = 2; y < (maxYCount - 2); y++)
             {
                 for (int x = 2; x < (maxXCount - 2); x++)
@@ -306,8 +311,8 @@ int main(int argc, char **argv)
                                 c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
                     u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_1;
-                    # pragma omp atomic
-                    error += update_val_1 * update_val_1;
+                    // # pragma omp atomic
+                    local_error0 += update_val_1 * update_val_1;
                 }
             }
 
@@ -322,70 +327,73 @@ int main(int argc, char **argv)
             // y = 1
             // y = maxYCount - 2
             // estimate outer rows
-            # pragma omp for
+            # pragma omp for reduction(+:local_error1)
             for (int x = 1; x < (maxXCount - 1); x++)
             {
-                int y = 1;
-                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+                // int y = 1;
+                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[0];
 
-                update_val_1 = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                            u_old[indices[y] + x] +
-                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+                update_val_1 = (u_old[indices[1] + x - 1] + u_old[indices[1] + x + 1]) * cx_cc +
+                            (u_old[indices[0] + x] + u_old[indices[2] + x]) * cy_cc +
+                            u_old[indices[1] + x] +
+                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[0] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
-                u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_1;
+                u[indices[1] + x] = u_old[indices[1] + x] - relax * update_val_1;
 
-                y = maxYCount - 2;
-                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+                // y = maxYCount - 2;
+                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[maxYCount - 3];
 
-                update_val_2 = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                            u_old[indices[y] + x] +
-                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+                update_val_2 = (u_old[indices[maxYCount - 2] + x - 1] + u_old[indices[maxYCount - 2] + x + 1]) * cx_cc +
+                               (u_old[indices[maxYCount - 3] + x] + u_old[indices[maxYCount - 1] + x]) * cy_cc +
+                               u_old[indices[maxYCount - 2] + x] +
+                               c1 * (1.0 - fX_sq[x - 1] - fY_sq[maxYCount - 3] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
-                u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_2;
-                # pragma omp atomic
-                error += update_val_1 * update_val_1 + update_val_2 * update_val_2;
+                u[indices[maxYCount - 2] + x] = u_old[indices[maxYCount - 2] + x] - relax * update_val_2;
+                // # pragma omp atomic
+                local_error1 += update_val_1 * update_val_1 + update_val_2 * update_val_2;
             }
 
             // for y from 1 to maxYCount-2
             // x = 1
             // x = maxXCount - 2
             // estimate outer columns
-            # pragma omp for
+            # pragma omp for reduction(+:local_error2)
             for (int y = 1; y < (maxYCount - 1); y++)
             {
-                int x = 1;
-                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+                fX_dot_fY_sq = fX_sq[0] * fY_sq[y - 1];
                 // TODO : replace x where needed with constant
-                update_val_1 = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                            u_old[indices[y] + x] +
-                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+                update_val_1 = (u_old[indices[y] + 0] + u_old[indices[y] + 2]) * cx_cc +
+                            (u_old[indices[y-1] + 1] + u_old[indices[y+1] + 1]) * cy_cc +
+                            u_old[indices[y] + 1] +
+                            c1 * (1.0 - fX_sq[0] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
-                u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_1;
+                u[indices[y] + 1] = u_old[indices[y] + 1] - relax * update_val_1;
 
-                x = maxXCount - 2;
-                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+                fX_dot_fY_sq = fX_sq[maxXCount - 3] * fY_sq[y - 1];
 
-                update_val_2 = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-                            (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
-                            u_old[indices[y] + x] +
-                            c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+                update_val_2 = (u_old[indices[y] + maxXCount - 3] + u_old[indices[y] + maxXCount - 1]) * cx_cc +
+                            (u_old[indices[y-1] + maxXCount-2] + u_old[indices[y+1] + maxXCount-2]) * cy_cc +
+                            u_old[indices[y] + maxXCount-2] +
+                            c1 * (1.0 - fX_sq[maxXCount - 3] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
 
-                u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_2;
-                # pragma omp atomic
-                error += update_val_1 * update_val_1 + update_val_2 * update_val_2;
+                u[indices[y] + maxXCount-2] = u_old[indices[y] + maxXCount-2] - relax * update_val_2;
+                // # pragma omp atomic
+                local_error2 += update_val_1 * update_val_1 + update_val_2 * update_val_2;
             }
 
 
+            
             # pragma omp master
             {
                 #ifdef CONVERGE_CHECK_TRUE
+                // estimate the total error for current process
+                error = local_error0 + local_error1 + local_error2;
                 // all reduce - to sum errors for all processes
                 MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
                 error = sqrt(error_sum) / (n * m);
+                fprintf(stderr, "convergence error: %g\n", error);
                 #endif
+
 
                 MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);
 
@@ -404,6 +412,11 @@ int main(int argc, char **argv)
         }
     }  // end parallel
 
+    #ifndef CONVERGE_CHECK_TRUE
+    // estimate the total error for current process
+    error = local_error0 + local_error1 + local_error2;
+    #endif
+
     t2 = MPI_Wtime();
 
     diff = clock() - start;
@@ -418,6 +431,7 @@ int main(int argc, char **argv)
     MPI_Reduce(&local_final_time, &final_time, 1, MPI_DOUBLE, MPI_MAX, 0, comm_cart);
 
     #ifndef CONVERGE_CHECK_TRUE
+    
     // Reduce - to sum errors for all processes
     MPI_Reduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, 0, comm_cart);
     error = sqrt(error_sum) / (n * m);
