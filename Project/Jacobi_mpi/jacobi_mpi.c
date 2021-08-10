@@ -87,26 +87,18 @@ int main(int argc, char **argv)
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
 
-    int dims[2];
-    if (numProcs == 80)
-    {
-        dims[0] = 8;
-        dims[1] = 10;
-    }
-    else
-    {
-        dims[0] = dims[1] = (int) sqrt(numProcs);
-    }
-    
     // Create Cartesian topology (NxN)
     MPI_Comm comm_cart;
     
     int periodic[2] = { 0, 0 };
+    int dims[2] = { 0, 0 };
+    MPI_Dims_create(numProcs, 2, dims);
 
-    // fprintf(stderr, "\n%d : %d\n", numProcs, dims[0]);
+    fprintf(stderr, "\nProcs: %d Dims[0]: %d, Dims[1]: %d\n", numProcs, dims[0], dims[1]);
 
     MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periodic, 1, &comm_cart);
     MPI_Comm_rank(comm_cart, &myRank);
+
     // printf("\nHello from Proccess with Rank: %d\n", myRank);
     // fprintf(stderr, "\n[NEIGHB] Hi, this is Rank %d, with Neighbours: N->%d, S->%d, W->%d, E->%d\n", myRank, north, south, west, east);
 
@@ -134,18 +126,8 @@ int main(int argc, char **argv)
     MPI_Bcast(&tol, 1, MPI_DOUBLE, 0, comm_cart);
     MPI_Bcast(&mits, 1, MPI_INT, 0, comm_cart);
 
-    int local_n, local_m;
-    if (numProcs != 80)
-    {
-        // Block dimensions for worker processes is n/sqrt(p) x m/sqrt(p) per process.
-        local_n = (int) ceil((double)n / sqrt((double)numProcs));
-        local_m = (int) ceil((double)m / sqrt((double)numProcs));
-    }
-    else
-    {
-        local_n = n / 8;
-        local_m = m / 10;
-    }
+    int local_n = n / dims[0];
+    int local_m = m / dims[1];
 
     // printf("\n \n %d local_m : %d local_n: %d\n\n", myRank, local_m, local_n);
 
