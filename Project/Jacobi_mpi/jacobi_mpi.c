@@ -132,7 +132,7 @@ int main(int argc, char **argv)
     double deltaX = (xRight - xLeft) / (n - 1);
     double deltaY = (yUp - yBottom) / (m - 1);
 
-    iterationCount = 0;
+    iterationCount = -1;
     error = HUGE_VAL;
     clock_t start, diff;
 
