@@ -5,6 +5,7 @@
 
 SERIAL_SRC_NAME="jacobi_serial_opt"
 MPI_SRC_NAME="jacobi_mpi"
+UTILS_SRC_NAME="utils"
 
 echo
 echo ">>> Started global_run.sh"
@@ -45,7 +46,7 @@ if [[ $procs -eq 1 ]]; then
 
 else
 
-	mpicc ${MPI_SRC_NAME}.c -o ${MPI_SRC_NAME}.x -lm -O3
+	mpicc ${MPI_SRC_NAME}.c ${UTILS_SRC_NAME}.c -o ${MPI_SRC_NAME}.x -lm -O3
 	prog_type="mpi"
 	run_c="mpirun ${MPI_SRC_NAME}.x < input"
 
