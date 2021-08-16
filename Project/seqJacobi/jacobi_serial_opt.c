@@ -130,7 +130,7 @@ int main(int argc, char **argv)
     double c1 = (2.0 + alpha) * div_cc;
     double c2 = 2.0 * div_cc;
 
-    double fX_sq[n], fY_sq[m], updateVal;
+    double fX_sq[n], fY_sq[m], updateVal, fX_dot_fY_sq;
 
     // Optimize
     for (int x = 0; x < n; x++) {
@@ -165,7 +165,7 @@ int main(int argc, char **argv)
         {
             for (int x = 1; x < (maxXCount - 1); x++)
             {
-                double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+                fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
 
                 updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
                             (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
