@@ -12,6 +12,8 @@ echo ">>> 1st arg - array/side size: (840, 1680, 3360, 6720, 13440, 26880)"
 echo ">>> 2nd arg - nodes: {1, 2, ..., 10}"
 echo ">>> 3rd arg - processes per node: (1, 2, 4, 8)"
 echo ">>> 4th arg - threads per node: (2, 4, 8)"
+echo ">>> 5th arg [OPTIONAL]- Schedule type (static[,chunk], dynamic[,chunk], guided[,chunk], auto)"
+echo ">>> 6th arg [OPTIONAL]- If given, enables collapse(2)"
 echo 
 
 show_exit_msg()
@@ -22,7 +24,7 @@ show_exit_msg()
 	echo
 }
 
-if [ $# -ne 4 ]; then
+if (( $# < 4 )); then
 	show_exit_msg
 	exit 1
 fi
@@ -45,7 +47,17 @@ echo ">>> Total Processes: ${total_procs} : valid range is {4, 9, 16, 25, 36, 49
 echo ">>> Total Threads: ${total_threads}"
 echo 
 
-mpicc -fopenmp ${HYBRID_SRC_NAME}.c -o ${HYBRID_SRC_NAME}.x -lm -O3
+SCHEDULE_TYPE=""
+if (( $# > 4 )); then
+	SCHEDULE_TYPE="-DSCHEDULE_TYPE=$5"
+fi
+
+ENABLE_COLLAPSE=""
+if (( $# > 5 )); then
+	ENABLE_COLLAPSE="-DENABLE_COLLAPSE"
+fi
+
+mpicc -fopenmp ${HYBRID_SRC_NAME}.c $SCHEDULE_TYPE $ENABLE_COLLAPSE -o ${HYBRID_SRC_NAME}.x -lm -O3
 prog_type="hybrid"
 run_c="mpirun ${HYBRID_SRC_NAME}.x < input"
 

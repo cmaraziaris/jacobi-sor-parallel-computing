@@ -41,7 +41,15 @@
 #include <mpi.h>
 #include <omp.h>
 
-// #define CONVERGE_CHECK_TRUE "lol"
+#ifndef SCHEDULE_TYPE
+    #define SCHEDULE_TYPE static
+#endif
+
+#ifdef ENABLE_COLLAPSE
+    #define COLLAPSE_S collapse(2)
+#else
+    #define COLLAPSE_S
+#endif
 
 /**********************************************************
  * Checks the error between numerical and exact solutions
@@ -56,7 +64,7 @@ double checkSolution(double xStart, double yStart,
     double fX;
     double localError, error = 0.0;
 
-    # pragma omp parallel for collapse(2) private(localError, fX) reduction(+: error)
+    # pragma omp parallel for private(localError, fX) reduction(+: error)
     for (int y = 1; y < (maxYCount - 1); y++)
     {
         for (int x = 1; x < (maxXCount - 1); x++)
@@ -75,7 +83,7 @@ int main(int argc, char **argv)
     int n, m, mits;
     double alpha, tol, relax;
     double maxAcceptableError;
-    double error, local_error0, local_error1, local_error2;
+    double error, local_error0, local_error1, local_error2, local_error3, local_error4;
     double *u, *u_old, *u_all, *tmp;
     int allocCount, localAlloc;
     int iterationCount, maxIterationCount;
@@ -221,27 +229,25 @@ int main(int argc, char **argv)
     double c2 = 2.0 * div_cc;
 
     double fX_sq[local_n], fY_sq[local_m], updateVal, fX_dot_fY_sq;
-    double update_val_1, update_val_2;
 
     // Optimize
     // Begin thread team 
-    # pragma omp parallel shared(fX_sq, fY_sq, error, iterationCount, local_error0, local_error1, local_error2) \
-                          private(fX_dot_fY_sq, update_val_1, update_val_2) 
+    # pragma omp parallel shared(fX_sq, fY_sq, error, iterationCount, local_error0, local_error1,\
+                                 local_error2, local_error3, local_error4) \
+                          private(fX_dot_fY_sq, updateVal) 
     {
 
-        // fprintf(stderr, "Using %d threads.\n", omp_get_num_threads());
-
-        # pragma omp for
+        # pragma omp for schedule(static)
         for (int x = 0; x < local_n; x++) {
             fX_sq[x] = (xLeft + x * deltaX) * (xLeft + x * deltaX);
         }
-        
-        # pragma omp for
+
+        # pragma omp for schedule(static)
         for (int y = 0; y < local_m; y++) {
             fY_sq[y] = (yBottom + y * deltaY) * (yBottom + y * deltaY);
         }
 
-        # pragma omp for
+        # pragma omp for schedule(static)
         for (int i = 0; i < maxYCount; i++) {
             indices[i] = i * maxXCount;
         }
@@ -253,47 +259,34 @@ int main(int argc, char **argv)
         while (iterationCount < maxIterationCount)
     #endif
         {
-            #ifdef CONVERGE_CHECK_TRUE
-            fprintf(stderr, "CONVERGENCE ENABLED\n");
-            #endif
-            /*************************************************************
-             * Performs one iteration of the Jacobi method and computes
-             * the residual value.
-             *
-             * NOTE: u(0,*), u(maxXCount-1,*), u(*,0) and u(*,maxYCount-1)
-             * are BOUNDARIES and therefore not part of the solution.
-             *************************************************************/
-
+            // Required to avoid "iterationCount" consistency errors (from iterationCount++ below).
             # pragma omp barrier
 
             # pragma omp master
             {
                 iterationCount++;
-                error = local_error0 = local_error1 = local_error2 = 0.0;
+                error = local_error0 = local_error1 = local_error2 = local_error3 = local_error4 = 0.0;
                 // Begin Halo swap
                 MPI_Startall(4, req_recv);
                 MPI_Startall(4, req_send);
             }
 
-            // needed cuz of Waitall in the end of the while loop + iterationCount dangers
+            // Needed because local_error? vars should be initialized before reduction.
             # pragma omp barrier
 
             // Calculate inner values
-            # pragma omp for reduction(+:local_error0)
+            # pragma omp for reduction(+:local_error0) schedule(SCHEDULE_TYPE) COLLAPSE_S
             for (int y = 2; y < (maxYCount - 2); y++)
             {
                 for (int x = 2; x < (maxXCount - 2); x++)
                 {
                     fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-
-                    update_val_1 = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
+                    updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
                                 (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
                                 u_old[indices[y] + x] +
                                 c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-                    u[indices[y] + x] = u_old[indices[y] + x] - relax * update_val_1;
-                    // # pragma omp atomic
-                    local_error0 += update_val_1 * update_val_1;
+                    u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
+                    local_error0 += updateVal * updateVal;
                 }
             }
 
@@ -304,77 +297,70 @@ int main(int argc, char **argv)
 
             // Calculate outer values
 
-            // for x from 1 to maxXCount-2
-            // y = 1
-            // y = maxYCount - 2
             // estimate outer rows
-            # pragma omp for reduction(+:local_error1)
+            // We split the for loop into 2 loops in an effort to optimize cache usage with cache locality.
+            # pragma omp for reduction(+:local_error1) schedule(static)
             for (int x = 1; x < (maxXCount - 1); x++)
             {
                 // int y = 1;
                 fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[0];
-
-                update_val_1 = (u_old[indices[1] + x - 1] + u_old[indices[1] + x + 1]) * cx_cc +
+                updateVal = (u_old[indices[1] + x - 1] + u_old[indices[1] + x + 1]) * cx_cc +
                             (u_old[indices[0] + x] + u_old[indices[2] + x]) * cy_cc +
                             u_old[indices[1] + x] +
                             c1 * (1.0 - fX_sq[x - 1] - fY_sq[0] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+                u[indices[1] + x] = u_old[indices[1] + x] - relax * updateVal;
+                local_error1 += updateVal * updateVal;
+            }
 
-                u[indices[1] + x] = u_old[indices[1] + x] - relax * update_val_1;
-
+            # pragma omp for reduction(+:local_error2) schedule(static)
+            for (int x = 1; x < (maxXCount - 1); x++)
+            {
                 // y = maxYCount - 2;
                 fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[maxYCount - 3];
-
-                update_val_2 = (u_old[indices[maxYCount - 2] + x - 1] + u_old[indices[maxYCount - 2] + x + 1]) * cx_cc +
+                updateVal = (u_old[indices[maxYCount - 2] + x - 1] + u_old[indices[maxYCount - 2] + x + 1]) * cx_cc +
                                (u_old[indices[maxYCount - 3] + x] + u_old[indices[maxYCount - 1] + x]) * cy_cc +
                                u_old[indices[maxYCount - 2] + x] +
                                c1 * (1.0 - fX_sq[x - 1] - fY_sq[maxYCount - 3] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-                u[indices[maxYCount - 2] + x] = u_old[indices[maxYCount - 2] + x] - relax * update_val_2;
-                // # pragma omp atomic
-                local_error1 += update_val_1 * update_val_1 + update_val_2 * update_val_2;
+                u[indices[maxYCount - 2] + x] = u_old[indices[maxYCount - 2] + x] - relax * updateVal;
+                local_error2 += updateVal * updateVal;
             }
 
-            // for y from 1 to maxYCount-2
-            // x = 1
-            // x = maxXCount - 2
             // estimate outer columns
-            # pragma omp for reduction(+:local_error2)
+            # pragma omp for reduction(+:local_error3) schedule(static)
             for (int y = 1; y < (maxYCount - 1); y++)
             {
+                // x = 1
                 fX_dot_fY_sq = fX_sq[0] * fY_sq[y - 1];
-                // TODO : replace x where needed with constant
-                update_val_1 = (u_old[indices[y] + 0] + u_old[indices[y] + 2]) * cx_cc +
+                updateVal = (u_old[indices[y] + 0] + u_old[indices[y] + 2]) * cx_cc +
                             (u_old[indices[y-1] + 1] + u_old[indices[y+1] + 1]) * cy_cc +
                             u_old[indices[y] + 1] +
                             c1 * (1.0 - fX_sq[0] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
+                u[indices[y] + 1] = u_old[indices[y] + 1] - relax * updateVal;
+                local_error3 += updateVal * updateVal;
+            }
 
-                u[indices[y] + 1] = u_old[indices[y] + 1] - relax * update_val_1;
-
+            # pragma omp for reduction(+:local_error4) schedule(static)
+            for (int y = 1; y < (maxYCount - 1); y++)
+            {
+                // x = maxXCount - 2
                 fX_dot_fY_sq = fX_sq[maxXCount - 3] * fY_sq[y - 1];
-
-                update_val_2 = (u_old[indices[y] + maxXCount - 3] + u_old[indices[y] + maxXCount - 1]) * cx_cc +
+                updateVal = (u_old[indices[y] + maxXCount - 3] + u_old[indices[y] + maxXCount - 1]) * cx_cc +
                             (u_old[indices[y-1] + maxXCount-2] + u_old[indices[y+1] + maxXCount-2]) * cy_cc +
                             u_old[indices[y] + maxXCount-2] +
                             c1 * (1.0 - fX_sq[maxXCount - 3] - fY_sq[y - 1] + fX_dot_fY_sq) - c2 * (fX_dot_fY_sq - 1.0);
-
-                u[indices[y] + maxXCount-2] = u_old[indices[y] + maxXCount-2] - relax * update_val_2;
-                // # pragma omp atomic
-                local_error2 += update_val_1 * update_val_1 + update_val_2 * update_val_2;
+                u[indices[y] + maxXCount-2] = u_old[indices[y] + maxXCount-2] - relax * updateVal;
+                local_error4 += updateVal * updateVal;
             }
 
-
-            
             # pragma omp master
             {
                 #ifdef CONVERGE_CHECK_TRUE
-                // estimate the total error for current process
-                error = local_error0 + local_error1 + local_error2;
-                // all reduce - to sum errors for all processes
-                MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
-                error = sqrt(error_sum) / (n * m);
-                fprintf(stderr, "convergence error: %g\n", error);
+                    // estimate the total error for current process
+                    error = local_error0 + local_error1 + local_error2 + local_error3 + local_error4;
+                    // all reduce - to sum errors for all processes
+                    MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
+                    error = sqrt(error_sum) / (n * m);
                 #endif
-
 
                 MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);
 
@@ -387,15 +373,15 @@ int main(int argc, char **argv)
                 req_send = (req_send == req_send_u_old) ? req_send_u : req_send_u_old;
             }
             #ifdef CONVERGE_CHECK_TRUE
-            // make sure every thread gets the correct error for the while check
-            # pragma omp barrier
+                // Ensure that every thread gets the correct "error" value for the while check right after
+                # pragma omp barrier
             #endif
         }
     }  // end parallel
 
     #ifndef CONVERGE_CHECK_TRUE
-    // estimate the total error for current process
-    error = local_error0 + local_error1 + local_error2;
+        // estimate the total error for current process
+        error = local_error0 + local_error1 + local_error2 + local_error3 + local_error4;
     #endif
 
     t2 = MPI_Wtime();
@@ -412,11 +398,9 @@ int main(int argc, char **argv)
     MPI_Reduce(&local_final_time, &final_time, 1, MPI_DOUBLE, MPI_MAX, 0, comm_cart);
 
     #ifndef CONVERGE_CHECK_TRUE
-    
-    // Reduce - to sum errors for all processes
-    MPI_Reduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, 0, comm_cart);
-    error = sqrt(error_sum) / (n * m);
-
+        // Reduce - to sum errors for all processes
+        MPI_Reduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, 0, comm_cart);
+        error = sqrt(error_sum) / (n * m);
     #endif
 
     if (myRank == 0) {
@@ -431,11 +415,7 @@ int main(int argc, char **argv)
     double absolute_error, local_absolute_error;
 
     // u_old holds the full local solution
-    local_absolute_error = checkSolution(xLeft, yBottom,
-                                        local_n + 2, local_m + 2,
-                                        u_old,
-                                        deltaX, deltaY,
-                                        alpha);
+    local_absolute_error = checkSolution(xLeft, yBottom, local_n + 2, local_m + 2, u_old, deltaX, deltaY, alpha);
     
     MPI_Reduce(&local_absolute_error, &absolute_error, 1, MPI_DOUBLE, MPI_SUM, 0, comm_cart);
     absolute_error = sqrt(absolute_error) / (n * m);
@@ -487,11 +467,7 @@ int main(int argc, char **argv)
         free(u_all);
 
         // u_final holds the full solution
-        double absoluteError = checkSolution(xLeft, yBottom,
-                                         n + 2, m + 2,
-                                         u_final,
-                                         deltaX, deltaY,
-                                         alpha);
+        double absoluteError = checkSolution(xLeft, yBottom, n + 2, m + 2, u_final, deltaX, deltaY, alpha);
         
         absoluteError = sqrt(absoluteError) / (n * m);
         printf("The error of the gathered solution is %g\n", absoluteError);
