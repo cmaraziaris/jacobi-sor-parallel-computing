@@ -186,7 +186,7 @@ int main(int argc, char **argv)
     }
 
     t2 = MPI_Wtime();
-    printf("Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount, t2 - t1);
+    printf("Iterations=%3d\nElapsed MPI Wall time is %f\n", iterationCount, t2 - t1);
     MPI_Finalize();
 
     diff = clock() - start;
