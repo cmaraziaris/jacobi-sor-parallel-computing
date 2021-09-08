@@ -11,6 +11,7 @@ echo ">>> Started global_run.sh"
 echo ">>> AVAILABLE ARG OPTIONS"
 echo ">>> 1st arg - processes: (1 [serial], 4, 16, 25, 36, 49, 64, 80)"
 echo ">>> 2nd arg - array/side size: (840, 1680, 3360, 6720, 13440, 26880)"
+echo ">>> 3rd arg - CONVERGENCE CHECK: 1 or 0"
 echo 
 
 show_exit_msg()
@@ -22,18 +23,26 @@ show_exit_msg()
 }
 
 
-if [ $# -ne 2 ]; then
+if [ $# -ne 3 ]; then
 	show_exit_msg
 	exit 1
 fi
 
 procs=$1
 array_size=$2
+conv_check=$3
 
 echo ">>> Args given:"
 echo ">>> Processes: ${procs}"
 echo ">>> Array size: ${array_size}"
+echo ">>> Conv-Check: ${conv_check}"
 echo 
+
+if [ "$3" -eq 1 ]; then
+	mpicc ${MPI_SRC_NAME}.c -o ${MPI_SRC_NAME}.x -lm -O3 -D CONVERGE_CHECK_TRUE=1
+else 
+	mpicc ${MPI_SRC_NAME}.c -o ${MPI_SRC_NAME}.x -lm -O3
+fi
 
 if [[ $procs -eq 1 ]]; then
 	
@@ -45,7 +54,6 @@ if [[ $procs -eq 1 ]]; then
 
 else
 
-	mpicc ${MPI_SRC_NAME}.c -o ${MPI_SRC_NAME}.x -lm -O3
 	prog_type="mpi"
 	run_c="mpirun ${MPI_SRC_NAME}.x < input"
 
@@ -72,7 +80,12 @@ else
 fi
 
 shell_c="#!/bin/bash"
-job_name_c="#PBS -N J_${prog_type}_${procs}_${array_size}"
+if [ "$conv_check" -eq 1 ]; then
+	job_name_c="#PBS -N J_${prog_type}_${procs}_${array_size}_CONV"
+else 
+	job_name_c="#PBS -N J_${prog_type}_${procs}_${array_size}"
+fi
+
 queue_c="#PBS -q N10C80"
 wall_time_c="#PBS -l walltime=00:20:00"
 working_dir_c="cd \$PBS_O_WORKDIR"
