@@ -27,8 +27,8 @@ def get_all_times(out_files):
     return times
 
 #  get speedup
-def get_speedup(t0, t1):
-    return round(t1/t0, 3)
+def get_speedup(t1, t0):
+    return round(t0/t1, 3)
 
 def get_all_speedup(t0s, t1s):
     speedup = {}
@@ -38,7 +38,27 @@ def get_all_speedup(t0s, t1s):
         speedup[procs,in_size,conv] = s
     return speedup
 
+def get_efficiency(S, n):
+    return round(S/n, 3)
 
+def get_all_efficiency(speedup):
+    efficiency = {}
+    for procs, in_size, conv in speedup:
+        e = get_efficiency(speedup[procs, in_size, conv], procs)
+        efficiency[procs, in_size, conv] = e
+    return efficiency
+
+def print_metrics(metrics, title, unit_str):
+    print("\n====PRINTING {}====".format(title))
+    proc_cnts = sorted(list(set([x[0] for x in metrics])))
+    sizes = sorted(list(set([x[1] for x in metrics])))
+
+    for conv in ["CONV", "NO-CONV"]:
+        print("\n"+conv, end = '\n\n')
+        print(" && ".join([""] + [str(i) for i in proc_cnts]), end=" ||\n")
+        for size in sizes:
+            line = sorted([str(metrics[i])+unit_str for i in metrics if size==i[1] and i[2]==conv], key=lambda x: x[0])
+            print(" && ".join([str(size)] + [str(i) for i in line]), end=' ||\n')
 
 if __name__ == "__main__":
     # get all seq-runs output files
@@ -65,4 +85,8 @@ if __name__ == "__main__":
     speedup = get_all_speedup(init_times, times)
 
     # efficiency in bath cases
-    efficiency = get_all_efficiency() #TODO
+    efficiency = get_all_efficiency(speedup)
+
+    print_metrics(times, "Times", "s")
+    print_metrics(speedup, "Speedup", "")
+    print_metrics(efficiency, "Efficiency", "")
