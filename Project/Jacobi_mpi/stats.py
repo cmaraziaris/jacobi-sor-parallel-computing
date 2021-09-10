@@ -22,7 +22,7 @@ def get_all_times(out_files):
     for f in out_files:
         procs, in_size, conv = get_details(f)
         time = get_time_from_output(f)
-        times[procs,in_size,conv] = float(time)
+        times[procs,in_size,conv] = round(float(time),5)
     
     return times
 
@@ -35,6 +35,7 @@ def get_all_speedup(t0s, t1s):
     for t1_k in t1s:
         procs,in_size,conv = t1_k
         s = get_speedup(t1s[t1_k], t0s[(1,in_size,conv)])
+        # print("Speed up for {} {}: {} / {} = {}".format(in_size, procs, t0s[(1,in_size,conv)], t1s[t1_k],s))
         speedup[procs,in_size,conv] = s
     return speedup
 
@@ -55,10 +56,10 @@ def print_metrics(metrics, title, unit_str):
 
     for conv in ["CONV", "NO-CONV"]:
         print("\n"+conv, end = '\n\n')
-        print(" && ".join([""] + [str(i) for i in proc_cnts]), end=" ||\n")
+        print(" & ".join([""] + [str(i) for i in proc_cnts]), end=" \\\\ \\hline \\hline\n")
         for size in sizes:
-            line = sorted([str(metrics[i])+unit_str for i in metrics if size==i[1] and i[2]==conv], key=lambda x: x[0])
-            print(" && ".join([str(size)] + [str(i) for i in line]), end=' ||\n')
+            line = [str(metrics[i])+unit_str for i in metrics if size==i[1] and i[2]==conv]
+            print(" & ".join([str(size)] + [str(i) for i in line]), end=' \\\\ \\hline\n')
 
 if __name__ == "__main__":
     # get all seq-runs output files
