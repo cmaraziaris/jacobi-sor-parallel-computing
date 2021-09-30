@@ -7,11 +7,14 @@ int maxXCount = 1;
 int maxYCount = 1;
 
 // declare constant-device variables
+__constant__ int n, m;
 __constant__ double cx_cc;
 __constant__ double cy_cc;
 __constant__ double c1;
 __constant__ double c2;
 __constant__ double relax;
+__constant__ double xLeft, xRight, yBottom, yUp, deltaX, deltaY;
+
 
 #define CUDA_SAFE_CALL(call)                                                  \
   {                                                                           \
@@ -31,25 +34,43 @@ double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
 
 
 
-__global__ void kernel(double *u, double *u_old, int n, int m, double fX_sq[], double fY_sq[], int indices[]) {
+__global__ void kernel(double *u, double *u_old) {
   // calculate x and y before do the following line
-  int x = find x coordinate 
-  int y = find y coordinate 
+  int ti = threadIdx.x + blockIdx.x * blockDim.x; // get thread id
+  int x = (ti % m);
+  int y = (ti / n);
+  // __shared__ double halos[4];
 
+  double fX = (xLeft + (x-1) * deltaX);
+  double fX_sq = fX*fX;
 
-  double fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
+  double fY = (yBottom + (y-1) * deltaY);
+  double fY_sq = fY*fY;
 
-  double updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
-              (u_old[indices[y - 1] + x] + u_old[indices[y + 1] + x]) * cy_cc +
-              u_old[indices[y] + x] +
-              c1 * (1.0 - fX_sq[x - 1] - fY_sq[y - 1] + fX_dot_fY_sq) -
+  double fX_dot_fY_sq = fX_sq * fY_sq;
+
+  int indices[3] = {
+    (y-1)*maxXCount, 
+    y*maxXCount, 
+    (y+1)*maxXCount
+  };
+
+  __shared__ double u_old[n*m];
+
+  __syncthreads();
+
+  double updateVal = (u_old[indices[1] + x - 1] + u_old[indices[1] + x + 1]) * cx_cc +
+              (u_old[indices[0] + x] + u_old[indices[2] + x]) * cy_cc +
+              u_old[indices[1] + x] +
+              c1 * (1.0 - fX_sq - fY_sq + fX_dot_fY_sq) -
               c2 * (fX_dot_fY_sq - 1.0);
 
-  u[indices[y] + x] = u_old[indices[y] + x] - relax * updateVal;
+  
+  u[indices[1] + x] = u_old[indices[1] + x] - relax * updateVal;
 }
 
 int main(int argc, char **argv) {
-  int n, m, mits;
+  int mits;
   double alpha, tol;
   double maxAcceptableError;
   double error;
@@ -81,11 +102,11 @@ int main(int argc, char **argv) {
   maxAcceptableError = tol;
 
   // Solve in [-1, 1] x [-1, 1]
-  double xLeft = -1.0, xRight = 1.0;
-  double yBottom = -1.0, yUp = 1.0;
+  xLeft = -1.0, xRight = 1.0;
+  yBottom = -1.0, yUp = 1.0;
 
-  double deltaX = (xRight - xLeft) / (n - 1);
-  double deltaY = (yUp - yBottom) / (m - 1);
+  deltaX = (xRight - xLeft) / (n - 1);
+  deltaY = (yUp - yBottom) / (m - 1);
 
   iterationCount = 0;
   error = HUGE_VAL;
@@ -109,23 +130,13 @@ int main(int argc, char **argv) {
   cy_cc = 1.0 / (deltaY * deltaY) * div_cc;
   c1 = (2.0 + alpha) * div_cc;
   c2 = 2.0 * div_cc;
-//   TODO: pass this values as symbols into GPU (check guide) 
 
-  // Optimize
-  for (int x = 0; x < n; x++) {
-    fX_sq[x] = (xLeft + x * deltaX) * (xLeft + x * deltaX);
-  }
-  for (int y = 0; y < m; y++) {
-    fY_sq[y] = (yBottom + y * deltaY) * (yBottom + y * deltaY);
-  }
-
-  for (int i = 0; i < maxYCount; i++) {
-    indices[i] = i * maxXCount;
-  }
+  // pass_values_to_gpu();
 
   // set blocks and threads/block TODO: make it more generic
-  int threads_per_block = 1;
-  int blocks = 1; 
+  const int BLOCK_SIZE = 1024;
+  dim3 dimBl(BLOCK_SIZE);
+  dim3 dimGr(FRACTION_CEILING(n*m, BLOCK_SIZE));
 
   /* Iterate as long as it takes to meet the convergence criterion */
   while (iterationCount < maxIterationCount && error > maxAcceptableError) {
@@ -141,14 +152,15 @@ int main(int argc, char **argv) {
 
     error = 0.0;
 
-    ///////////////////////////////////////////////////
-    kernel<<<blocks, threads_per_block>>>(u, u_old, n, m, fX_sq, fY_sq, indices)
-    estimate the error : error += updateVal * updateVal;
-
-    error = sqrt(error) / (n * m);
-    ///////////////////////////////////////////
+    // run kernel
+    kernel<<<dimGr, dimBl>>>(u, u_old);
     
+    // estimate the error : error += updateVal * updateVal;
 
+    CUDA_SAFE_CALL(cudaDeviceSynchronize());
+
+    // error = sqrt(error) / (n * m);
+    
     // Swap the buffers
     tmp = u_old;
     u_old = u;
