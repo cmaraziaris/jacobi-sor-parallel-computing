@@ -3,14 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int maxXCount = 1;
-int maxYCount = 1;
-
-// declare constant-device variables
-__constant__ int n, m;
-__constant__ double relax, cx_cc, cy_cc, c1, c2, xLeft, xRight, yBottom, yUp, deltaX, deltaY;
-
-
 #define CUDA_SAFE_CALL(call)                                                  \
   {                                                                           \
     cudaError err = call;                                                     \
@@ -24,9 +16,39 @@ __constant__ double relax, cx_cc, cy_cc, c1, c2, xLeft, xRight, yBottom, yUp, de
 #define FRACTION_CEILING(numerator, denominator) \
   ((numerator + denominator - 1) / denominator)
 
+int maxXCount = 1;
+int maxYCount = 1;
+
+// declare constant-device variables
+__constant__ int n, m;
+__constant__ double relax, cx_cc, cy_cc, c1, c2, xLeft, xRight, yBottom, yUp, deltaX, deltaY;
+
+int h_n, h_m;
+double h_relax, h_cx_cc, h_cy_cc, h_c1, h_c2, h_xLeft, h_xRight, h_yBottom, h_yUp, h_deltaX, h_deltaY;
+
+// ON-HOST FUNCTIONS
+
+// solution checker
 double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
                      double *u, double deltaX, double deltaY, double alpha);
 
+void initGPU(void) {
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(n, &h_n, sizeof(int), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(m, &h_m, sizeof(int), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(relax, &h_relax, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(cx_cc, &h_cx_cc, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(cy_cc, &h_cy_cc, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(c1, &h_c1, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(c2, &h_c2, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(xLeft, &h_xLeft, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(xRight, &h_xRight, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(yBottom, &h_yBottom, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(yUp, &h_yUp, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(deltaX, &h_deltaX, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(deltaY, &h_deltaY, sizeof(double), 0, cudaMemcpyHostToDevice));
+}
+
+// ON-DEVICE FUNCTIONS
 
 
 __global__ void kernel(double *u, double *u_old) {
@@ -34,7 +56,6 @@ __global__ void kernel(double *u, double *u_old) {
   int ti = threadIdx.x + blockIdx.x * blockDim.x; // get thread id
   int x = (ti % m);
   int y = (ti / n);
-  // __shared__ double halos[4];
 
   double fX = (xLeft + (x-1) * deltaX);
   double fX_sq = fX*fX;
@@ -50,8 +71,12 @@ __global__ void kernel(double *u, double *u_old) {
     (y+1)*maxXCount
   };
 
-  __shared__ double u_old[n*m];
-
+  __shared__ double shared_mem[blockDim.x][4]; // left and right elements
+  shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0; // left halo
+  shared_mem[threadIdx.x][1] = threadIdx.x < blockDim.x-1 ? shared_mem[threadIdx.x + 1] : 0; // right halo
+  shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0;
+  shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0;
+  
   __syncthreads();
 
   double updateVal = (u_old[indices[1] + x - 1] + u_old[indices[1] + x + 1]) * cx_cc +
