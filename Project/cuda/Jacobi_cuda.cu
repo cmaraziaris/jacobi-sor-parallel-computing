@@ -8,12 +8,7 @@ int maxYCount = 1;
 
 // declare constant-device variables
 __constant__ int n, m;
-__constant__ double cx_cc;
-__constant__ double cy_cc;
-__constant__ double c1;
-__constant__ double c2;
-__constant__ double relax;
-__constant__ double xLeft, xRight, yBottom, yUp, deltaX, deltaY;
+__constant__ double relax, cx_cc, cy_cc, c1, c2, xLeft, xRight, yBottom, yUp, deltaX, deltaY;
 
 
 #define CUDA_SAFE_CALL(call)                                                  \
