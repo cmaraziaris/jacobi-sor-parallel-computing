@@ -56,13 +56,14 @@ queue_c="#PBS -q GPUq"
 wall_time_c="#PBS -l walltime=00:20:00"
 working_dir_c="cd \$PBS_O_WORKDIR"
 nodes_c="#PBS -l select=1:ncpus=1:ngpus=${gpus} -lplace=excl"
-run_c="nvprof --print-summary-per-gpu ./jacobi_cuda < input"
+run_c="nvprof --print-summary-per-gpu ./Jacobi_cuda < input"
 
 final_sh_input="$shell_c\n\n$job_name_c\n$queue_c\n$wall_time_c\n$nodes_c\n$working_dir_c\n$run_c\n"
 
 RANDOM_NAME="$RANDOM"
 
 # Run actual commands
+make rebuild
 printf "$array_size,$array_size\n0.8\n1.0\n1e-13\n50\n" > input
 printf "$final_sh_input" > my_PBS_script_${RANDOM_NAME}.sh
 sleep 2

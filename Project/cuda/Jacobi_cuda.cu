@@ -2,6 +2,7 @@
 #include <cuda_runtime_api.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #define CUDA_SAFE_CALL(call)                                                  \
   {                                                                           \
@@ -16,14 +17,11 @@
 #define FRACTION_CEILING(numerator, denominator) \
   ((numerator + denominator - 1) / denominator)
 
-int maxXCount = 1;
-int maxYCount = 1;
-
 // declare constant-device variables
-__constant__ int n, m;
+__constant__ int n, m, maxXCount, maxYCount;
 __constant__ double relax, cx_cc, cy_cc, c1, c2, xLeft, xRight, yBottom, yUp, deltaX, deltaY;
 
-int h_n, h_m;
+int h_n, h_m, h_maxXCount, h_maxYCount;
 double h_relax, h_cx_cc, h_cy_cc, h_c1, h_c2, h_xLeft, h_xRight, h_yBottom, h_yUp, h_deltaX, h_deltaY;
 
 // ON-HOST FUNCTIONS
@@ -32,30 +30,43 @@ double h_relax, h_cx_cc, h_cy_cc, h_c1, h_c2, h_xLeft, h_xRight, h_yBottom, h_yU
 double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
                      double *u, double deltaX, double deltaY, double alpha);
 
-void initGPU(void) {
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(n, &h_n, sizeof(int), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(m, &h_m, sizeof(int), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(relax, &h_relax, sizeof(double), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(cx_cc, &h_cx_cc, sizeof(double), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(cy_cc, &h_cy_cc, sizeof(double), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(c1, &h_c1, sizeof(double), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(c2, &h_c2, sizeof(double), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(xLeft, &h_xLeft, sizeof(double), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(xRight, &h_xRight, sizeof(double), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(yBottom, &h_yBottom, sizeof(double), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(yUp, &h_yUp, sizeof(double), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(deltaX, &h_deltaX, sizeof(double), 0, cudaMemcpyHostToDevice));
-  CUDA_SAFE_CALL(cudaMemcpyToSymbol(deltaY, &h_deltaY, sizeof(double), 0, cudaMemcpyHostToDevice));
-}
+void initGPU(void);
 
 // ON-DEVICE FUNCTIONS
 
 
-__global__ void kernel(double *u, double *u_old) {
+__global__ void kernel(double *u, double *u_old)
+{
   // calculate x and y before do the following line
   int ti = threadIdx.x + blockIdx.x * blockDim.x; // get thread id
   int x = (ti % m);
   int y = (ti / n);
+
+  /////////////////////////////
+  
+  // u_temp : [0, (Bdim + 2) * 3 - 1];
+  extern __shared__ double u_tmp[];
+  
+  // we spawn n*m threads,
+  // map "index" from indexing n*m elements -> (n+2)*(m+2) elements, including halos
+  int index = ti + (m+2) + 2 * (ti / (m+2)) - 1;
+
+  if (threadIdx.x == 0) { // 1st element
+    u_tmp[blockDim.x+2] = u_old[index-1];  // center left
+  }
+  if (threadIdx.x == blockDim.x-1) {  // last element
+    u_tmp[2*blockDim.x+3] = u_old[index+1];  // center right
+  }
+
+  u_tmp[1 + threadIdx.x] = u_old[index - (m+2)];  // upper
+  u_tmp[blockDim.x + 3 + threadIdx.x] = u_old[index];  // center
+  u_tmp[2*blockDim.x + 5 + threadIdx.x] = u_old[index + (m+2)];  // lower
+
+  // u_tmp[3][Bdim+2]
+  // [0, Bdim+1] // upper row
+  // [Bdim+2, Bdim+2 + (Bdim+1)] // center row
+  // [2Bdim+4, 2Bim+4 + (Bdim+1)] // lower row
+  // Tid in [0, Bdim-1]
 
   double fX = (xLeft + (x-1) * deltaX);
   double fX_sq = fX*fX;
@@ -65,28 +76,33 @@ __global__ void kernel(double *u, double *u_old) {
 
   double fX_dot_fY_sq = fX_sq * fY_sq;
 
-  int indices[3] = {
-    (y-1)*maxXCount, 
-    y*maxXCount, 
-    (y+1)*maxXCount
-  };
-
-  __shared__ double shared_mem[blockDim.x][4]; // left and right elements
-  shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0; // left halo
-  shared_mem[threadIdx.x][1] = threadIdx.x < blockDim.x-1 ? shared_mem[threadIdx.x + 1] : 0; // right halo
-  shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0;
-  shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0;
-  
   __syncthreads();
 
-  double updateVal = (u_old[indices[1] + x - 1] + u_old[indices[1] + x + 1]) * cx_cc +
-              (u_old[indices[0] + x] + u_old[indices[2] + x]) * cy_cc +
-              u_old[indices[1] + x] +
+  // do calculations
+
+  //////////////////////////////
+
+  // int indices[3] = {
+  //   (y-1)*maxXCount, 0 --> panw
+  //   y*maxXCount, 
+  //   (y+1)*maxXCount
+  // };
+
+  // __shared__ double shared_mem[blockDim.x][4]; // left and right elements
+  // shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0; // left halo
+  // shared_mem[threadIdx.x][1] = threadIdx.x < blockDim.x-1 ? shared_mem[threadIdx.x + 1] : 0; // right halo
+  // shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0;
+  // shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0;
+
+  double updateVal = (u_tmp[blockDim.x + threadIdx.x +2] + u_tmp[blockDim.x + threadIdx.x + 4]) * cx_cc + // left, right
+              (u_tmp[1 + threadIdx.x] + u_tmp[2*blockDim.x + threadIdx.x + 5]) * cy_cc +                // up, down
+              u_tmp[blockDim.x + threadIdx.x + 3] +    // self
               c1 * (1.0 - fX_sq - fY_sq + fX_dot_fY_sq) -
               c2 * (fX_dot_fY_sq - 1.0);
 
-  
-  u[indices[1] + x] = u_old[indices[1] + x] - relax * updateVal;
+  // self ? 
+  // u[indices[1] + x] = u_old[indices[1] + x] - relax * updateVal;
+  u[index] = u_tmp[blockDim.x + threadIdx.x + 3] - relax * updateVal;
 }
 
 int main(int argc, char **argv) {
@@ -97,22 +113,22 @@ int main(int argc, char **argv) {
   double *u, *u_old, *tmp;
   int allocCount;
   int iterationCount, maxIterationCount;
-  double t1, t2;
+  // double t1, t2;
 
   //    printf("Input n,m - grid dimension in x,y direction:\n");
-  scanf("%d,%d", &n, &m);
+  scanf("%d,%d", &h_n, &h_m);
   //    printf("Input alpha - Helmholtz constant:\n");
   scanf("%lf", &alpha);
   //    printf("Input relax - successive over-relaxation parameter:\n");
-  scanf("%lf", &relax);
+  scanf("%lf", &h_relax);
   //    printf("Input tol - error tolerance for the iterrative solver:\n");
   scanf("%lf", &tol);
   //    printf("Input mits - maximum solver iterations:\n");
   scanf("%d", &mits);
 
-  printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, tol, mits);
+  printf("-> %d, %d, %g, %g, %g, %d\n", h_n, h_m, alpha, h_relax, tol, mits);
 
-  allocCount = (n + 2) * (m + 2);
+  allocCount = (h_n + 2) * (h_m + 2);
   // Those two calls also zero the boundary elements
   CUDA_SAFE_CALL(cudaMallocManaged(&u, allocCount*sizeof(double))); // reserve memory in global unified address space
   CUDA_SAFE_CALL(cudaMallocManaged(&u_old, allocCount * sizeof(double))); // reserve memory in global unified address space
@@ -122,11 +138,11 @@ int main(int argc, char **argv) {
   maxAcceptableError = tol;
 
   // Solve in [-1, 1] x [-1, 1]
-  xLeft = -1.0, xRight = 1.0;
-  yBottom = -1.0, yUp = 1.0;
+  h_xLeft = h_yBottom = -1.0;
+  h_xRight = h_yUp = 1.0;
 
-  deltaX = (xRight - xLeft) / (n - 1);
-  deltaY = (yUp - yBottom) / (m - 1);
+  h_deltaX = (h_xRight - h_xLeft) / (h_n - 1);
+  h_deltaY = (h_yUp - h_yBottom) / (h_m - 1);
 
   iterationCount = 0;
   error = HUGE_VAL;
@@ -134,32 +150,28 @@ int main(int argc, char **argv) {
 
 //   t1 = MPI_Wtime();
 
-  maxXCount = n + 2;
-  maxYCount = m + 2;
+  h_maxXCount = h_n + 2;
+  h_maxYCount = h_m + 2;
 
-
-  double fX_sq[n], fY_sq[m];
-  int indices[maxYCount];
-
-  double cx = 1.0 / (deltaX * deltaX);
-  double cy = 1.0 / (deltaY * deltaY);
+  double cx = 1.0 / (h_deltaX * h_deltaX);
+  double cy = 1.0 / (h_deltaY * h_deltaY);
   double cc = -2.0 * (cx + cy) - alpha;
   double div_cc = 1.0 / cc;
 
-  cx_cc = 1.0 / (deltaX * deltaX) * div_cc;
-  cy_cc = 1.0 / (deltaY * deltaY) * div_cc;
-  c1 = (2.0 + alpha) * div_cc;
-  c2 = 2.0 * div_cc;
+  h_cx_cc = 1.0 / (h_deltaX * h_deltaX) * div_cc;
+  h_cy_cc = 1.0 / (h_deltaY * h_deltaY) * div_cc;
+  h_c1 = (2.0 + alpha) * div_cc;
+  h_c2 = 2.0 * div_cc;
 
   // pass_values_to_gpu();
 
   // set blocks and threads/block TODO: make it more generic
   const int BLOCK_SIZE = 1024;
   dim3 dimBl(BLOCK_SIZE);
-  dim3 dimGr(FRACTION_CEILING(n*m, BLOCK_SIZE));
+  dim3 dimGr(FRACTION_CEILING(h_n*h_m, BLOCK_SIZE));
 
   /* Iterate as long as it takes to meet the convergence criterion */
-  while (iterationCount < maxIterationCount && error > maxAcceptableError) {
+  while (iterationCount < maxIterationCount) {
     iterationCount++;
 
     /*************************************************************
@@ -173,11 +185,11 @@ int main(int argc, char **argv) {
     error = 0.0;
 
     // run kernel
-    kernel<<<dimGr, dimBl>>>(u, u_old);
+    kernel<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3) * sizeof(double)>>>(u, u_old); //xd /bruh
     
     // estimate the error : error += updateVal * updateVal;
 
-    CUDA_SAFE_CALL(cudaDeviceSynchronize());
+    // CUDA_SAFE_CALL(cudaDeviceSynchronize());
 
     // error = sqrt(error) / (n * m);
     
@@ -188,8 +200,8 @@ int main(int argc, char **argv) {
   }
 
 //   t2 = MPI_Wtime();
-  printf("Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount,
-         t2 - t1);
+  // printf("Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount,
+        //  t2 - t1);
 
   diff = clock() - start;
   int msec = diff * 1000 / CLOCKS_PER_SEC;
@@ -198,7 +210,7 @@ int main(int argc, char **argv) {
 
   // u_old holds the solution after the most recent buffers swap
   double absoluteError =
-      checkSolution(xLeft, yBottom, n + 2, m + 2, u_old, deltaX, deltaY, alpha);
+      checkSolution(h_xLeft, h_yBottom, h_n + 2, h_m + 2, u_old, h_deltaX, h_deltaY, alpha);
   printf("The error of the iterative solution is %g\n", absoluteError);
 
   return 0;
@@ -223,4 +235,22 @@ double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
     }
   }
   return sqrt(error) / ((maxXCount - 2) * (maxYCount - 2));
+}
+
+void initGPU(void) {  // bruh
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(n, &h_n, sizeof(int), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(m, &h_m, sizeof(int), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(maxXCount, &h_maxXCount, sizeof(int), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(maxYCount, &h_maxYCount, sizeof(int), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(relax, &h_relax, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(cx_cc, &h_cx_cc, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(cy_cc, &h_cy_cc, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(c1, &h_c1, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(c2, &h_c2, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(xLeft, &h_xLeft, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(xRight, &h_xRight, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(yBottom, &h_yBottom, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(yUp, &h_yUp, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(deltaX, &h_deltaX, sizeof(double), 0, cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpyToSymbol(deltaY, &h_deltaY, sizeof(double), 0, cudaMemcpyHostToDevice));
 }
