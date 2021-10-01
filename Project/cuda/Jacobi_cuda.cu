@@ -40,6 +40,10 @@ __global__ void kernel(double *u, double *u_old)
 {
   // calculate x and y before do the following line
   int ti = threadIdx.x + blockIdx.x * blockDim.x; // get thread id
+  
+  if (ti >= n*m)  // Required in cases where the number of elements
+    return;       // is *not* a multiple of threads per block (aka 1024) eg. 1680x1680/1024=2756.25 -> 2757 blocks
+
   int x = (ti % m);
   int y = (ti / n);
 
@@ -50,17 +54,23 @@ __global__ void kernel(double *u, double *u_old)
   
   // we spawn n*m threads,
   // map "index" from indexing n*m elements -> (n+2)*(m+2) elements, including halos
-  int index = ti + (m+2) + 2 * (ti / (m+2)) - 1;
-
+  int index = ti + (m+2) + 2 * (ti / m + 1) - 1;
+  
   if (threadIdx.x == 0) { // 1st element
     u_tmp[blockDim.x+2] = u_old[index-1];  // center left
   }
+
   if (threadIdx.x == blockDim.x-1) {  // last element
     u_tmp[2*blockDim.x+3] = u_old[index+1];  // center right
   }
 
   u_tmp[1 + threadIdx.x] = u_old[index - (m+2)];  // upper
   u_tmp[blockDim.x + 3 + threadIdx.x] = u_old[index];  // center
+  
+  // if (index + m + 2 >= (n+2)*(m+2)) printf("$$$someone fucked up n = %d, m = %d -- %d %d %d %d %d %d %d\n", 
+  // n, m, (n*m), ((n+2)*(m+2)), index, threadIdx.x, blockIdx.x, blockDim.x, gridDim.x);
+  // if (2*blockDim.x + 5 + threadIdx.x >= ((1024 + 2) * 3)) printf("$$$$wat\n");
+
   u_tmp[2*blockDim.x + 5 + threadIdx.x] = u_old[index + (m+2)];  // lower
 
   // u_tmp[3][Bdim+2]
@@ -71,10 +81,8 @@ __global__ void kernel(double *u, double *u_old)
 
   double fX = (xLeft + (x-1) * deltaX);
   double fX_sq = fX*fX;
-
   double fY = (yBottom + (y-1) * deltaY);
   double fY_sq = fY*fY;
-
   double fX_dot_fY_sq = fX_sq * fY_sq;
 
   __syncthreads();
@@ -164,9 +172,10 @@ int main(int argc, char **argv)
   h_c2 = 2.0 * div_cc;
 
   // pass_values_to_gpu();
+  initGPU();
 
   // set blocks and threads/block TODO: make it more generic
-  const int BLOCK_SIZE = 512;
+  const int BLOCK_SIZE = 1024;
   dim3 dimBl(BLOCK_SIZE);
   dim3 dimGr(FRACTION_CEILING(h_n*h_m, BLOCK_SIZE));
 
@@ -189,7 +198,7 @@ int main(int argc, char **argv)
     
     // estimate the error : error += updateVal * updateVal;
 
-    // CUDA_SAFE_CALL(cudaDeviceSynchronize());
+    CUDA_SAFE_CALL(cudaDeviceSynchronize());
 
     // error = sqrt(error) / (n * m);
     

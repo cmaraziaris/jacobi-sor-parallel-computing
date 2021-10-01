@@ -5,6 +5,7 @@ NVCC = ${CUDA_INSTALL_PATH}/bin/nvcc
 INCDIR = -I../common/inc/
 FLAGS = ${OPTFLAG} -I${CUDA_INSTALL_PATH}/include -Wall -g ${INCDIR}
 NVFLAGS = -O2 -I${CUDA_INSTALL_PATH}/include --compiler-options -fno-strict-aliasing --ptxas-options=-v -g ${INCDIR}
+# NVFLAGS += -G  # Enable/uncomment if running with cuda-memcheck
 BITS = $(shell getconf LONG_BIT)
 ifeq (${BITS},64)
 	LIBSUFFIX := 64

@@ -6,4 +6,4 @@
 *.o*
 *.e*
 input
-
+Jacobi_cuda
