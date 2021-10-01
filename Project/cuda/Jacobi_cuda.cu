@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "timestamp.h"
 
 #define CUDA_SAFE_CALL(call)                                                  \
   {                                                                           \
@@ -105,14 +106,11 @@ __global__ void kernel(double *u, double *u_old)
   u[index] = u_tmp[blockDim.x + threadIdx.x + 3] - relax * updateVal;
 }
 
-int main(int argc, char **argv) {
-  int mits;
-  double alpha, tol;
-  double maxAcceptableError;
-  double error;
+int main(int argc, char **argv)
+{
+  int mits, allocCount, iterationCount, maxIterationCount;
+  double alpha, tol, maxAcceptableError, error;
   double *u, *u_old, *tmp;
-  int allocCount;
-  int iterationCount, maxIterationCount;
   // double t1, t2;
 
   //    printf("Input n,m - grid dimension in x,y direction:\n");
@@ -133,7 +131,6 @@ int main(int argc, char **argv) {
   CUDA_SAFE_CALL(cudaMallocManaged(&u, allocCount*sizeof(double))); // reserve memory in global unified address space
   CUDA_SAFE_CALL(cudaMallocManaged(&u_old, allocCount * sizeof(double))); // reserve memory in global unified address space
 
-
   maxIterationCount = mits;
   maxAcceptableError = tol;
 
@@ -146,9 +143,12 @@ int main(int argc, char **argv) {
 
   iterationCount = 0;
   error = HUGE_VAL;
-  clock_t start = clock(), diff;
 
-//   t1 = MPI_Wtime();
+  // clock_t start = clock(), diff;
+  //   t1 = MPI_Wtime();
+
+  timestamp t_start;
+  t_start = getTimestamp();
 
   h_maxXCount = h_n + 2;
   h_maxYCount = h_m + 2;
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
   // pass_values_to_gpu();
 
   // set blocks and threads/block TODO: make it more generic
-  const int BLOCK_SIZE = 1024;
+  const int BLOCK_SIZE = 512;
   dim3 dimBl(BLOCK_SIZE);
   dim3 dimGr(FRACTION_CEILING(h_n*h_m, BLOCK_SIZE));
 
@@ -199,14 +199,11 @@ int main(int argc, char **argv) {
     u = tmp;
   }
 
-//   t2 = MPI_Wtime();
-  // printf("Iterations=%3d Elapsed MPI Wall time is %f\n", iterationCount,
-        //  t2 - t1);
+  float msec = getElapsedtime(t_start);
 
-  diff = clock() - start;
-  int msec = diff * 1000 / CLOCKS_PER_SEC;
-  printf("Time taken %d seconds %d milliseconds\n", msec / 1000, msec % 1000);
-  printf("Residual %g\n", error);
+  printf("Time taken: %f seconds\n", msec / 1000.0);
+  printf("Iterations: %d\n", iterationCount);
+  printf("Residual: %g\n", error);  // :(
 
   // u_old holds the solution after the most recent buffers swap
   double absoluteError =
