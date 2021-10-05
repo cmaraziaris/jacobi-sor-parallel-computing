@@ -8,7 +8,8 @@
 #define CUDA_SAFE_CALL(call)                                                  \
   {                                                                           \
     cudaError err = call;                                                     \
-    if (cudaSuccess != err) {                                                 \
+    if (cudaSuccess != err)                                                   \
+    {                                                                         \
       fprintf(stderr, "Cuda error in file '%s' in line %i : %s.\n", __FILE__, \
               __LINE__, cudaGetErrorString(err));                             \
       exit(EXIT_FAILURE);                                                     \
@@ -35,43 +36,44 @@ void initGPU(void);
 
 // ON-DEVICE FUNCTIONS
 
-
-__global__ void kernel(double *u, double *u_old)
+__global__ void kernel(double *u, double *u_old, double *error_matrix)
 {
   // calculate x and y before do the following line
   int ti = threadIdx.x + blockIdx.x * blockDim.x; // get thread id
-  
-  if (ti >= n*m)  // Required in cases where the number of elements
-    return;       // is *not* a multiple of threads per block (aka 1024) eg. 1680x1680/1024=2756.25 -> 2757 blocks
+
+  if (ti >= n * m) // Required in cases where the number of elements
+    return;        // is *not* a multiple of threads per block (aka 1024) eg. 1680x1680/1024=2756.25 -> 2757 blocks
 
   int x = (ti % m);
   int y = (ti / n);
 
   /////////////////////////////
-  
+
   // u_temp : [0, (Bdim + 2) * 3 - 1];
   extern __shared__ double u_tmp[];
-  
+
   // we spawn n*m threads,
   // map "index" from indexing n*m elements -> (n+2)*(m+2) elements, including halos
-  int index = ti + (m+2) + 2 * (ti / m + 1) - 1;
-  
-  if (threadIdx.x == 0) { // 1st element
-    u_tmp[blockDim.x+2] = u_old[index-1];  // center left
+  int index = ti + (m + 2) + 2 * (ti / m + 1) - 1;
+
+  if (threadIdx.x == 0)
+  {                                           // 1st element
+    u_tmp[blockDim.x + 2] = u_old[index - 1]; // center left
   }
 
-  if (threadIdx.x == blockDim.x-1) {  // last element
-    u_tmp[2*blockDim.x+3] = u_old[index+1];  // center right
+  if (threadIdx.x == blockDim.x - 1)
+  {                                               // last element
+    u_tmp[2 * blockDim.x + 3] = u_old[index + 1]; // center right
   }
 
-  u_tmp[1 + threadIdx.x] = u_old[index - (m+2)];  // upper
-  u_tmp[blockDim.x + 3 + threadIdx.x] = u_old[index];  // center
-  
-  // if (index + m + 2 >= (n+2)*(m+2)) printf("$$$someone fucked up n = %d, m = %d -- %d %d %d %d %d %d %d\n", 
+  u_tmp[1 + threadIdx.x] = u_old[index - (m + 2)];    // upper
+  u_tmp[blockDim.x + 3 + threadIdx.x] = u_old[index]; // center
+
+  // if (index + m + 2 >= (n+2)*(m+2)) printf("$$$someone fucked up n = %d, m = %d -- %d %d %d %d %d %d %d\n",
   // n, m, (n*m), ((n+2)*(m+2)), index, threadIdx.x, blockIdx.x, blockDim.x, gridDim.x);
   // if (2*blockDim.x + 5 + threadIdx.x >= ((1024 + 2) * 3)) printf("$$$$wat\n");
 
-  u_tmp[2*blockDim.x + 5 + threadIdx.x] = u_old[index + (m+2)];  // lower
+  u_tmp[2 * blockDim.x + 5 + threadIdx.x] = u_old[index + (m + 2)]; // lower
 
   // u_tmp[3][Bdim+2]
   // [0, Bdim+1] // upper row
@@ -79,10 +81,10 @@ __global__ void kernel(double *u, double *u_old)
   // [2Bdim+4, 2Bim+4 + (Bdim+1)] // lower row
   // Tid in [0, Bdim-1]
 
-  double fX = (xLeft + (x-1) * deltaX);
-  double fX_sq = fX*fX;
-  double fY = (yBottom + (y-1) * deltaY);
-  double fY_sq = fY*fY;
+  double fX = (xLeft + (x - 1) * deltaX);
+  double fX_sq = fX * fX;
+  double fY = (yBottom + (y - 1) * deltaY);
+  double fY_sq = fY * fY;
   double fX_dot_fY_sq = fX_sq * fY_sq;
 
   __syncthreads();
@@ -93,7 +95,7 @@ __global__ void kernel(double *u, double *u_old)
 
   // int indices[3] = {
   //   (y-1)*maxXCount, 0 --> panw
-  //   y*maxXCount, 
+  //   y*maxXCount,
   //   (y+1)*maxXCount
   // };
 
@@ -103,22 +105,35 @@ __global__ void kernel(double *u, double *u_old)
   // shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0;
   // shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0;
 
-  double updateVal = (u_tmp[blockDim.x + threadIdx.x +2] + u_tmp[blockDim.x + threadIdx.x + 4]) * cx_cc + // left, right
-              (u_tmp[1 + threadIdx.x] + u_tmp[2*blockDim.x + threadIdx.x + 5]) * cy_cc +                // up, down
-              u_tmp[blockDim.x + threadIdx.x + 3] +    // self
-              c1 * (1.0 - fX_sq - fY_sq + fX_dot_fY_sq) -
-              c2 * (fX_dot_fY_sq - 1.0);
+  double updateVal = (u_tmp[blockDim.x + threadIdx.x + 2] + u_tmp[blockDim.x + threadIdx.x + 4]) * cx_cc + // left, right
+                     (u_tmp[1 + threadIdx.x] + u_tmp[2 * blockDim.x + threadIdx.x + 5]) * cy_cc +          // up, down
+                     u_tmp[blockDim.x + threadIdx.x + 3] +                                                 // self
+                     c1 * (1.0 - fX_sq - fY_sq + fX_dot_fY_sq) -
+                     c2 * (fX_dot_fY_sq - 1.0);
 
-  // self ? 
+  error_matrix[ti] = updateVal * updateVal;
+
+  // self ?
   // u[indices[1] + x] = u_old[indices[1] + x] - relax * updateVal;
   u[index] = u_tmp[blockDim.x + threadIdx.x + 3] - relax * updateVal;
 }
 
+// NOTE: na valoume kai ton ari8miti apo to stride
+__global__ void kernel_reduce_error(double *error_matrix, int stride)
+{
+  int ti = threadIdx.x + blockIdx.x * blockDim.x; // get thread id
+
+  if (ti >= stride) // Required in cases where the number of elements
+    return;         // is *not* a multiple of threads per block (aka 1024) eg. 1680x1680/1024=2756.25 -> 2757 blocks
+
+  error_matrix[ti] = error_matrix[ti] + error_matrix[ti + stride];
+}
+
 int main(int argc, char **argv)
 {
-  int mits, allocCount, iterationCount, maxIterationCount;
+  int mits, allocCount, iterationCount, maxIterationCount, stride;
   double alpha, tol, maxAcceptableError, error;
-  double *u, *u_old, *tmp;
+  double *u, *u_old, *tmp, *error_matrix;
   // double t1, t2;
 
   //    printf("Input n,m - grid dimension in x,y direction:\n");
@@ -136,8 +151,9 @@ int main(int argc, char **argv)
 
   allocCount = (h_n + 2) * (h_m + 2);
   // Those two calls also zero the boundary elements
-  CUDA_SAFE_CALL(cudaMallocManaged(&u, allocCount*sizeof(double))); // reserve memory in global unified address space
-  CUDA_SAFE_CALL(cudaMallocManaged(&u_old, allocCount * sizeof(double))); // reserve memory in global unified address space
+  CUDA_SAFE_CALL(cudaMallocManaged(&u, allocCount * sizeof(double)));            // reserve memory in global unified address space
+  CUDA_SAFE_CALL(cudaMallocManaged(&u_old, allocCount * sizeof(double)));        // reserve memory in global unified address space
+  CUDA_SAFE_CALL(cudaMallocManaged(&error_matrix, allocCount * sizeof(double))); // reserve memory in global unified address space
 
   maxIterationCount = mits;
   maxAcceptableError = tol;
@@ -175,12 +191,14 @@ int main(int argc, char **argv)
   initGPU();
 
   // set blocks and threads/block TODO: make it more generic
-  const int BLOCK_SIZE = 1024;
+  int BLOCK_SIZE = 128;
+  printf("GPU Threads used per block: %d\n", BLOCK_SIZE);
   dim3 dimBl(BLOCK_SIZE);
-  dim3 dimGr(FRACTION_CEILING(h_n*h_m, BLOCK_SIZE));
+  dim3 dimGr(FRACTION_CEILING(h_n * h_m, BLOCK_SIZE));
 
   /* Iterate as long as it takes to meet the convergence criterion */
-  while (iterationCount < maxIterationCount) {
+  while (iterationCount < maxIterationCount && error > maxAcceptableError)
+  {
     iterationCount++;
 
     /*************************************************************
@@ -194,14 +212,27 @@ int main(int argc, char **argv)
     error = 0.0;
 
     // run kernel
-    kernel<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3) * sizeof(double)>>>(u, u_old); //xd /bruh
-    
+    kernel<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3) * sizeof(double)>>>(u, u_old, error_matrix); //xd /bruh
+
     // estimate the error : error += updateVal * updateVal;
 
     CUDA_SAFE_CALL(cudaDeviceSynchronize());
 
     // error = sqrt(error) / (n * m);
-    
+
+    stride = h_n * h_m / 2;
+    while (stride > 0)
+    {
+      int BLOCK_SIZE = ( (stride < 1024 ? stride : 1024) );
+      dim3 dimBl(BLOCK_SIZE);
+      dim3 dimGr(FRACTION_CEILING(stride, BLOCK_SIZE));
+
+      kernel_reduce_error<<<dimGr, dimBl>>>(error_matrix, stride);
+      CUDA_SAFE_CALL(cudaDeviceSynchronize());
+      stride >>= 1;
+    }
+
+    error = sqrt(error_matrix[0]) / (h_n * h_m);
     // Swap the buffers
     tmp = u_old;
     u_old = u;
@@ -212,7 +243,7 @@ int main(int argc, char **argv)
 
   printf("Time taken: %f seconds\n", msec / 1000.0);
   printf("Iterations: %d\n", iterationCount);
-  printf("Residual: %g\n", error);  // :(
+  printf("Residual: %g\n", error); // :(
 
   // u_old holds the solution after the most recent buffers swap
   double absoluteError =
@@ -226,15 +257,18 @@ int main(int argc, char **argv)
  * Checks the error between numerical and exact solutions
  **********************************************************/
 double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
-                     double *u, double deltaX, double deltaY, double alpha) {
+                     double *u, double deltaX, double deltaY, double alpha)
+{
 #define U(XX, YY) u[(YY)*maxXCount + (XX)]
   int x, y;
   double fX, fY;
   double localError, error = 0.0;
 
-  for (y = 1; y < (maxYCount - 1); y++) {
+  for (y = 1; y < (maxYCount - 1); y++)
+  {
     fY = yStart + (y - 1) * deltaY;
-    for (x = 1; x < (maxXCount - 1); x++) {
+    for (x = 1; x < (maxXCount - 1); x++)
+    {
       fX = xStart + (x - 1) * deltaX;
       localError = U(x, y) - (1.0 - fX * fX) * (1.0 - fY * fY);
       error += localError * localError;
@@ -243,7 +277,8 @@ double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
   return sqrt(error) / ((maxXCount - 2) * (maxYCount - 2));
 }
 
-void initGPU(void) {  // bruh
+void initGPU(void)
+{ // bruh
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(n, &h_n, sizeof(int), 0, cudaMemcpyHostToDevice));
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(m, &h_m, sizeof(int), 0, cudaMemcpyHostToDevice));
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(maxXCount, &h_maxXCount, sizeof(int), 0, cudaMemcpyHostToDevice));
