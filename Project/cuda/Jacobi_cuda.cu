@@ -150,10 +150,28 @@ int main(int argc, char **argv)
   printf("-> %d, %d, %g, %g, %g, %d\n", h_n, h_m, alpha, h_relax, tol, mits);
 
   allocCount = (h_n + 2) * (h_m + 2);
+
+  #if 0
   // Those two calls also zero the boundary elements
   CUDA_SAFE_CALL(cudaMallocManaged(&u, allocCount * sizeof(double)));            // reserve memory in global unified address space
   CUDA_SAFE_CALL(cudaMallocManaged(&u_old, allocCount * sizeof(double)));        // reserve memory in global unified address space
   CUDA_SAFE_CALL(cudaMallocManaged(&error_matrix, allocCount * sizeof(double))); // reserve memory in global unified address space
+  #else
+  ////////////////////////////////
+  // Cuda malloc test
+  double *h_u, *h_u_old, *h_error_matrix;
+  h_u = (double *) calloc(allocCount, sizeof(double));
+  h_u_old = (double *) calloc(allocCount, sizeof(double));
+  h_error_matrix = (double *) calloc(allocCount, sizeof(double));
+  
+  CUDA_SAFE_CALL(cudaMalloc(&u, allocCount * sizeof(double)));            // reserve memory in global unified address space
+  CUDA_SAFE_CALL(cudaMalloc(&u_old, allocCount * sizeof(double)));        // reserve memory in global unified address space
+  CUDA_SAFE_CALL(cudaMalloc(&error_matrix, allocCount * sizeof(double))); // reserve memory in global unified address space
+  CUDA_SAFE_CALL(cudaMemcpy(u, h_u, allocCount * sizeof(double), cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpy(u_old, h_u_old, allocCount * sizeof(double), cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpy(error_matrix, h_error_matrix, allocCount * sizeof(double), cudaMemcpyHostToDevice));
+  #endif
+  ////////////////////////////////
 
   maxIterationCount = mits;
   maxAcceptableError = tol;
@@ -232,7 +250,9 @@ int main(int argc, char **argv)
       stride >>= 1;
     }
 
-    error = sqrt(error_matrix[0]) / (h_n * h_m);
+    CUDA_SAFE_CALL(cudaMemcpy(h_error_matrix, error_matrix, sizeof(double), cudaMemcpyDeviceToHost));
+
+    error = sqrt(h_error_matrix[0]) / (h_n * h_m);
     // Swap the buffers
     tmp = u_old;
     u_old = u;
@@ -245,9 +265,11 @@ int main(int argc, char **argv)
   printf("Iterations: %d\n", iterationCount);
   printf("Residual: %g\n", error); // :(
 
+  CUDA_SAFE_CALL(cudaMemcpy(h_u_old, u_old, allocCount * sizeof(double), cudaMemcpyDeviceToHost));
+
   // u_old holds the solution after the most recent buffers swap
   double absoluteError =
-      checkSolution(h_xLeft, h_yBottom, h_n + 2, h_m + 2, u_old, h_deltaX, h_deltaY, alpha);
+      checkSolution(h_xLeft, h_yBottom, h_n + 2, h_m + 2, h_u_old, h_deltaX, h_deltaY, alpha);
   printf("The error of the iterative solution is %g\n", absoluteError);
 
   return 0;
