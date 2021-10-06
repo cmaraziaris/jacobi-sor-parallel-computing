@@ -151,7 +151,7 @@ int main(int argc, char **argv)
         printf("Not enough memory for two %ix%i matrices\n", local_n + 2, local_m + 2); exit(1);
     }
     
-    int tag = 666; // random tag
+    int tag = 0; // random tag
 
     // find neighbours (from cartesian topology)
     int south, north, east, west;
@@ -233,11 +233,6 @@ int main(int argc, char **argv)
         indices[i] = i * maxXCount;
     }
 
-    // #ifdef CONVERGE_CHECK_TRUE
-    //     #define CHECK (iterationCount < maxIterationCount && error > maxAcceptableError)
-    // #elif
-
-    // #endif
     /* Iterate as long as it takes to meet the convergence criterion */
     #ifdef CONVERGE_CHECK_TRUE
         while (iterationCount < maxIterationCount && error > maxAcceptableError)
