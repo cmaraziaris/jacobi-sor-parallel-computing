@@ -1,0 +1,155 @@
+@ mpiP
+@ Command : jacobiMPI.x 
+@ Version                  : 3.5.0
+@ MPIP Build date          : Nov 11 2020, 13:45:15
+@ Start time               : 2021 10 07 14:44:59
+@ Stop time                : 2021 10 07 14:44:59
+@ Timer Used               : PMPI_Wtime
+@ MPIP env var             : [null]
+@ Collector Rank           : 0
+@ Collector PID            : 1067159
+@ Final Output Dir         : .
+@ Report generation        : Single collector task
+@ MPI Task Assignment      : 0 argo-c0
+@ MPI Task Assignment      : 1 argo-c0
+@ MPI Task Assignment      : 2 argo-c0
+@ MPI Task Assignment      : 3 argo-c0
+
+---------------------------------------------------------------------------
+@--- MPI Time (seconds) ---------------------------------------------------
+---------------------------------------------------------------------------
+Task    AppTime    MPITime     MPI%
+   0      0.223      0.014     6.25
+   1      0.226     0.0171     7.54
+   2      0.224     0.0153     6.83
+   3      0.223     0.0139     6.24
+   *      0.897     0.0603     6.72
+---------------------------------------------------------------------------
+@--- Callsites: 12 --------------------------------------------------------
+---------------------------------------------------------------------------
+ ID Lev File/Address        Line Parent_Funct             MPI_Call
+  1   0 jacobiMPI.c           47 swap_halos               Sendrecv
+  2   0 jacobiMPI.c          276 main                     Allreduce
+  3   0 jacobiMPI.c           50 swap_halos               Sendrecv
+  4   0 0x1516adc1a2e2           [unknown]                Sendrecv
+  5   0 0x1516adc0dc32           [unknown]                Allreduce
+  6   0 0x1516adc1a2e2           [unknown]                Sendrecv
+  7   0 0x14e257f562e2           [unknown]                Sendrecv
+  8   0 0x14e257f49c32           [unknown]                Allreduce
+  9   0 0x14e257f562e2           [unknown]                Sendrecv
+ 10   0 0x1549cf7562e2           [unknown]                Sendrecv
+ 11   0 0x1549cf749c32           [unknown]                Allreduce
+ 12   0 0x1549cf7562e2           [unknown]                Sendrecv
+---------------------------------------------------------------------------
+@--- Aggregate Time (top twenty, descending, milliseconds) ----------------
+---------------------------------------------------------------------------
+Call                 Site       Time    App%    MPI%      Count    COV
+Allreduce               8       8.81    0.98   14.62         50   0.00
+Allreduce               2       8.68    0.97   14.41         50   0.00
+Allreduce               5       8.67    0.97   14.38         50   0.00
+Allreduce              11       8.35    0.93   13.85         50   0.00
+Sendrecv               10        7.2    0.80   11.96         50   0.00
+Sendrecv                3       4.36    0.49    7.23         50   0.00
+Sendrecv                7       4.35    0.49    7.22         50   0.00
+Sendrecv                4       4.24    0.47    7.04         50   0.00
+Sendrecv                6       2.42    0.27    4.02         50   0.00
+Sendrecv               12       1.52    0.17    2.51         50   0.00
+Sendrecv                1      0.911    0.10    1.51         50   0.00
+Sendrecv                9      0.749    0.08    1.24         50   0.00
+---------------------------------------------------------------------------
+@--- Aggregate Sent Message Size (top twenty, descending, bytes) ----------
+---------------------------------------------------------------------------
+Call                 Site      Count      Total       Avrg  Sent%
+Sendrecv                1         50   3.37e+05   6.74e+03  12.49
+Sendrecv                3         50   3.37e+05   6.74e+03  12.49
+Sendrecv                4         50   3.37e+05   6.74e+03  12.49
+Sendrecv                7         50   3.37e+05   6.74e+03  12.49
+Sendrecv                6         50   3.37e+05   6.74e+03  12.49
+Sendrecv                9         50   3.37e+05   6.74e+03  12.49
+Sendrecv               10         50   3.37e+05   6.74e+03  12.49
+Sendrecv               12         50   3.37e+05   6.74e+03  12.49
+Allreduce               2         50        400          8   0.01
+Allreduce               5         50        400          8   0.01
+Allreduce              11         50        400          8   0.01
+Allreduce               8         50        400          8   0.01
+---------------------------------------------------------------------------
+@--- Callsite Time statistics (all, milliseconds): 12 ---------------------
+---------------------------------------------------------------------------
+Name              Site Rank  Count      Max     Mean      Min   App%   MPI%
+Allreduce            2    0     50     4.51    0.174   0.0178   3.89  62.24
+Allreduce            2    *     50     4.51    0.174   0.0178   0.97  14.41
+
+Allreduce            5    2     50     4.26    0.173   0.0167   3.86  56.54
+Allreduce            5    *     50     4.26    0.173   0.0167   0.97  14.38
+
+Allreduce            8    3     50     4.43    0.176   0.0238   3.95  63.32
+Allreduce            8    *     50     4.43    0.176   0.0238   0.98  14.62
+
+Allreduce           11    1     50     4.63    0.167   0.0184   3.69  48.91
+Allreduce           11    *     50     4.63    0.167   0.0184   0.93  13.85
+
+Sendrecv             1    0     50     0.14   0.0182  0.00953   0.41   6.53
+Sendrecv             1    *     50     0.14   0.0182  0.00953   0.10   1.51
+
+Sendrecv             3    0     50     2.44   0.0871   0.0278   1.95  31.23
+Sendrecv             3    *     50     2.44   0.0871   0.0278   0.49   7.23
+
+Sendrecv             4    2     50     2.42   0.0848   0.0235   1.89  27.66
+Sendrecv             4    *     50     2.42   0.0848   0.0235   0.47   7.04
+
+Sendrecv             6    2     50     1.37   0.0484    0.016   1.08  15.80
+Sendrecv             6    *     50     1.37   0.0484    0.016   0.27   4.02
+
+Sendrecv             7    3     50     2.84   0.0871  0.00967   1.95  31.30
+Sendrecv             7    *     50     2.84   0.0871  0.00967   0.49   7.22
+
+Sendrecv             9    3     50   0.0649    0.015  0.00937   0.34   5.39
+Sendrecv             9    *     50   0.0649    0.015  0.00937   0.08   1.24
+
+Sendrecv            10    1     50     3.17    0.144   0.0158   3.18  42.21
+Sendrecv            10    *     50     3.17    0.144   0.0158   0.80  11.96
+
+Sendrecv            12    1     50   0.0582   0.0303    0.022   0.67   8.88
+Sendrecv            12    *     50   0.0582   0.0303    0.022   0.17   2.51
+---------------------------------------------------------------------------
+@--- Callsite Message Sent statistics (all, sent bytes) -------------------
+---------------------------------------------------------------------------
+Name              Site Rank   Count       Max      Mean       Min       Sum
+Allreduce            2    0      50         8         8         8       400
+Allreduce            2    *      50         8         8         8       400
+
+Allreduce            5    2      50         8         8         8       400
+Allreduce            5    *      50         8         8         8       400
+
+Allreduce            8    3      50         8         8         8       400
+Allreduce            8    *      50         8         8         8       400
+
+Allreduce           11    1      50         8         8         8       400
+Allreduce           11    *      50         8         8         8       400
+
+Sendrecv             1    0      50      6736      6736      6736 3.368e+05
+Sendrecv             1    *      50      6736      6736      6736 3.368e+05
+
+Sendrecv             3    0      50      6736      6736      6736 3.368e+05
+Sendrecv             3    *      50      6736      6736      6736 3.368e+05
+
+Sendrecv             4    2      50      6736      6736      6736 3.368e+05
+Sendrecv             4    *      50      6736      6736      6736 3.368e+05
+
+Sendrecv             6    2      50      6736      6736      6736 3.368e+05
+Sendrecv             6    *      50      6736      6736      6736 3.368e+05
+
+Sendrecv             7    3      50      6736      6736      6736 3.368e+05
+Sendrecv             7    *      50      6736      6736      6736 3.368e+05
+
+Sendrecv             9    3      50      6736      6736      6736 3.368e+05
+Sendrecv             9    *      50      6736      6736      6736 3.368e+05
+
+Sendrecv            10    1      50      6736      6736      6736 3.368e+05
+Sendrecv            10    *      50      6736      6736      6736 3.368e+05
+
+Sendrecv            12    1      50      6736      6736      6736 3.368e+05
+Sendrecv            12    *      50      6736      6736      6736 3.368e+05
+---------------------------------------------------------------------------
+@--- End of Report --------------------------------------------------------
+---------------------------------------------------------------------------
