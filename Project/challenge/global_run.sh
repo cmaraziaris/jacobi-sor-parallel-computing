@@ -3,8 +3,8 @@
 # Usage:       $ bash global_run.sh <NUM_OF_TOTAL_PROCESSES> <ARRAY_SIZE>
 # Example run: $ bash global_run.sh 25 3360
 
-SERIAL_SRC_NAME="jacobi_serial_opt"
-MPI_SRC_NAME="jacobi_mpi"
+SERIAL_SRC_NAME="jacobiMPI"
+MPI_SRC_NAME="jacobiMPI"
 
 echo
 echo ">>> Started global_run.sh"
@@ -46,7 +46,7 @@ if [[ $procs -eq 1 ]]; then
 
 else
 
-	prog_type="mpi"
+	prog_type="challenge"
 	run_c="mpirun ${MPI_SRC_NAME}.x < input"
 
 	procs_arr=(4 9 16 25 36 49 64 80)
@@ -72,11 +72,9 @@ else
 fi
 
 shell_c="#!/bin/bash"
-if [ "$conv_check" -eq 1 ]; then
-	job_name_c="#PBS -N J_${prog_type}_${procs}_${array_size}_CONV"
-else 
-	job_name_c="#PBS -N J_${prog_type}_${procs}_${array_size}"
-fi
+
+job_name_c="#PBS -N J_${prog_type}_${procs}_${array_size}"
+
 
 queue_c="#PBS -q N10C80"
 wall_time_c="#PBS -l walltime=00:20:00"

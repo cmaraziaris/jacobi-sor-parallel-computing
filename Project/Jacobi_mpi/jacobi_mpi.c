@@ -152,7 +152,7 @@ int main(int argc, char **argv)
         printf("Not enough memory for two %ix%i matrices\n", local_n + 2, local_m + 2); exit(1);
     }
     
-    int tag = 0; // random tag
+    int tag = 666; // random tag
 
     // find neighbours (from cartesian topology)
     int south, north, east, west;
@@ -344,6 +344,8 @@ int main(int argc, char **argv)
         error = sqrt(error_sum) / (n * m);
         #endif
 
+
+        // wait to make sure the halos are sent
         MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);
 
         // Swap the buffers

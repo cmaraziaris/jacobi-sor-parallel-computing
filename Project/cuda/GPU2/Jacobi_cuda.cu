@@ -99,19 +99,6 @@ __global__ void kernel(double *u, double *u_old, double *error_matrix, int offse
 
   // do calculations
 
-  //////////////////////////////
-
-  // int indices[3] = {
-  //   (y-1)*maxXCount, 0 --> panw
-  //   y*maxXCount,
-  //   (y+1)*maxXCount
-  // };
-
-  // __shared__ double shared_mem[blockDim.x][4]; // left and right elements
-  // shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0; // left halo
-  // shared_mem[threadIdx.x][1] = threadIdx.x < blockDim.x-1 ? shared_mem[threadIdx.x + 1] : 0; // right halo
-  // shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0;
-  // shared_mem[threadIdx.x][0] = threadIdx.x > 0 ? shared_mem[threadIdx.x - 1] : 0;
 
   double updateVal = (u_tmp[blockDim.x + threadIdx.x + 2] + u_tmp[blockDim.x + threadIdx.x + 4]) * cx_cc + // left, right
                      (u_tmp[1 + threadIdx.x] + u_tmp[2 * blockDim.x + threadIdx.x + 5]) * cy_cc +          // up, down
@@ -283,22 +270,6 @@ double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
   }
   return sqrt(error) / ((maxXCount - 2) * (maxYCount - 2));
 }
-
-// void cuda_enable_peer_access(void)
-// {
-//     // Get the current device, s.t. it can be set afterwards.
-//     int current_device;
-//     cudaGetDevice(&current_device);
-
-//     // Enable peer access
-//     cudaSetDevice(0);
-//     checkCudaErrors(cudaDeviceEnablePeerAccess(1, 0));
-//     cudaSetDevice(1);
-//     checkCudaErrors(cudaDeviceEnablePeerAccess(0, 0));
-
-//     // Set current device back
-//     cudaSetDevice(current_device);
-// }
 
 
 void initGPUs(void) {
