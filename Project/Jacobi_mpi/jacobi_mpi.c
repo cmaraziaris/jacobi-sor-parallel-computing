@@ -86,6 +86,7 @@ int main(int argc, char **argv)
     // init MPI and get comm size
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
+    MPI_Pcontrol(0);
 
     // Create Cartesian topology (NxN)
     MPI_Comm comm_cart;
@@ -205,6 +206,7 @@ int main(int argc, char **argv)
 
     start = clock();
     t1 = MPI_Wtime();
+    MPI_Pcontrol(1);
 
     int maxXCount = local_n + 2;
     int maxYCount = local_m + 2;
@@ -359,6 +361,7 @@ int main(int argc, char **argv)
     }
 
     t2 = MPI_Wtime();
+    MPI_Pcontrol(0);
 
     diff = clock() - start;
     int msec = diff * 1000 / CLOCKS_PER_SEC;
