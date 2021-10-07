@@ -11,7 +11,6 @@ echo ">>> Started global_run.sh"
 echo ">>> AVAILABLE ARG OPTIONS"
 echo ">>> 1st arg - processes: (1 [serial], 4, 16, 25, 36, 49, 64, 80)"
 echo ">>> 2nd arg - array/side size: (840, 1680, 3360, 6720, 13440, 26880)"
-echo ">>> 3rd arg - CONVERGENCE CHECK: 1 or 0"
 echo 
 
 show_exit_msg()
@@ -23,30 +22,23 @@ show_exit_msg()
 }
 
 
-if [ $# -ne 3 ]; then
+if [ $# -ne 2 ]; then
 	show_exit_msg
 	exit 1
 fi
 
 procs=$1
 array_size=$2
-conv_check=$3
+
 
 echo ">>> Args given:"
 echo ">>> Processes: ${procs}"
 echo ">>> Array size: ${array_size}"
-echo ">>> Conv-Check: ${conv_check}"
 echo 
 
-if [ "$3" -eq 1 ]; then
-	mpicc ${MPI_SRC_NAME}.c -o ${MPI_SRC_NAME}.x -lm -L/opt/mpiP-3.5/lib -lmpiP -lbfd -lunwind -O3 -D CONVERGE_CHECK_TRUE=1
-else 
-	mpicc ${MPI_SRC_NAME}.c -o ${MPI_SRC_NAME}.x -L/opt/mpiP-3.5/lib -lmpiP -lbfd -lunwind -lm -O3
-fi
 
 if [[ $procs -eq 1 ]]; then
 	
-	mpicc ${SERIAL_SRC_NAME}.c -o ${SERIAL_SRC_NAME}.x -lm -O3
 	prog_type="seq"
 	nodes_c="#PBS -l select=1:ncpus=1:mem=16400000kb"
 	run_c="mpirun -np 1 ${SERIAL_SRC_NAME}.x < input"
