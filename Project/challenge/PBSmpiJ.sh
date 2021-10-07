@@ -13,7 +13,7 @@
 
 # How many nodes and tasks per node
 # Example 4 nodes, 8 cores/node, 8 mpiprocs/node => 32 procs on 32 cores
-#PBS -l select=10:ncpus=8:mpiprocs=8:mem=16400000kb
+#PBS -l select=2:ncpus=8:mpiprocs=8:mem=16400000kb
 
 #Change Working directory to SUBMIT directory
 cd $PBS_O_WORKDIR
