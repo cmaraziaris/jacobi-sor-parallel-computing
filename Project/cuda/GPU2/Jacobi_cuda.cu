@@ -5,6 +5,8 @@
 #include <math.h>
 #include "timestamp.h"
 
+#define CONVERGE_CHECK_TRUE 1
+
 #define CUDA_SAFE_CALL(call)                                                  \
   {                                                                           \
     cudaError err = call;                                                     \
@@ -28,14 +30,16 @@ double h_relax, h_cx_cc, h_cy_cc, h_c1, h_c2, h_xLeft, h_xRight, h_yBottom, h_yU
 
 // ON-HOST FUNCTIONS
 
-double run_at_gpu(int GPU_NUM, int offset, dim3 dimGr, dim3 dimBl, int BLOCK_SIZE, double *u, double *u_old, double *error_matrix);
+void run_at_gpu(int GPU_NUM, int offset, dim3 dimGr, dim3 dimBl, int BLOCK_SIZE, double *u, double *u_old, double *error_matrix);
 
 // solution checker
 double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
                      double *u, double deltaX, double deltaY, double alpha);
 
 void initGPU(void);
+void initGPUs(void);
 void cuda_enable_peer_access(void);
+double get_residual_error(double *error_matrix);
 
 // ON-DEVICE FUNCTIONS
 
@@ -114,14 +118,16 @@ __global__ void kernel(double *u, double *u_old, double *error_matrix, int offse
                      u_tmp[blockDim.x + threadIdx.x + 3] +                                                 // self
                      c1 * (1.0 - fX_sq - fY_sq + fX_dot_fY_sq) -
                      c2 * (fX_dot_fY_sq - 1.0);
-
+  #ifdef CONVERGE_CHECK_TRUE
   error_matrix[ti] = updateVal * updateVal;
+  #endif
 
   // self ?
   // u[indices[1] + x] = u_old[indices[1] + x] - relax * updateVal;
   u[index] = u_tmp[blockDim.x + threadIdx.x + 3] - relax * updateVal;
 }
 
+#ifdef CONVERGE_CHECK_TRUE
 // NOTE: na valoume kai ton ari8miti apo to stride
 __global__ void kernel_reduce_error(double *error_matrix, int stride)
 {
@@ -132,10 +138,11 @@ __global__ void kernel_reduce_error(double *error_matrix, int stride)
 
   error_matrix[ti] = error_matrix[ti] + error_matrix[ti + stride];
 }
+#endif
 
 int main(int argc, char **argv)
 {
-  int mits, allocCount, iterationCount, maxIterationCount, stride;
+  int mits, allocCount, iterationCount, maxIterationCount;
   double alpha, tol, maxAcceptableError, error;
   double *u, *u_old, *tmp, *error_matrix;
   // double t1, t2;
@@ -158,8 +165,9 @@ int main(int argc, char **argv)
   // Those two calls also zero the boundary elements
   CUDA_SAFE_CALL(cudaMallocManaged(&u, allocCount * sizeof(double)));            // reserve memory in global unified address space
   CUDA_SAFE_CALL(cudaMallocManaged(&u_old, allocCount * sizeof(double)));        // reserve memory in global unified address space
+  #ifdef CONVERGE_CHECK_TRUE
   CUDA_SAFE_CALL(cudaMallocManaged(&error_matrix, allocCount * sizeof(double))); // reserve memory in global unified address space
-
+  #endif
   // cuda_enable_peer_access();
   
   maxIterationCount = mits;
@@ -195,7 +203,7 @@ int main(int argc, char **argv)
   h_c2 = 2.0 * div_cc;
 
   // pass_values_to_gpu();
-  initGPU();
+  initGPUs();
 
   // set blocks and threads/block TODO: make it more generic
   int BLOCK_SIZE = 128;
@@ -204,8 +212,13 @@ int main(int argc, char **argv)
   dim3 dimGr(FRACTION_CEILING((h_n * h_m)/2, BLOCK_SIZE));
 
   /* Iterate as long as it takes to meet the convergence criterion */
-  while (iterationCount < maxIterationCount && error > maxAcceptableError)
-  {
+  
+  #ifdef CONVERGE_CHECK_TRUE
+        while (iterationCount < maxIterationCount && error > maxAcceptableError)
+    #else
+        while (iterationCount < maxIterationCount)
+    #endif
+    {
     iterationCount++;
 
     /*************************************************************
@@ -215,10 +228,17 @@ int main(int argc, char **argv)
      * NOTE: u(0,*), u(maxXCount-1,*), u(*,0) and u(*,maxYCount-1)
      * are BOUNDARIES and therefore not part of the solution.
      *************************************************************/
+    run_at_gpu(0, 0, dimGr, dimBl, BLOCK_SIZE, u, u_old, error_matrix);
+    run_at_gpu(1, h_n*h_m/2, dimGr, dimBl, BLOCK_SIZE, u, u_old, error_matrix);
+    CUDA_SAFE_CALL(cudaSetDevice(0));
+    CUDA_SAFE_CALL(cudaDeviceSynchronize());
+    CUDA_SAFE_CALL(cudaSetDevice(1));
+    CUDA_SAFE_CALL(cudaDeviceSynchronize());
 
-    error = run_at_gpu(0, 0, dimGr, dimBl, BLOCK_SIZE, u, u_old, error_matrix)
-          + run_at_gpu(1, h_n*h_m/2, dimGr, dimBl, BLOCK_SIZE, u, u_old, error_matrix);
+    #ifdef CONVERGE_CHECK_TRUE
+    error = get_residual_error(error_matrix);
     error = sqrt(error) / (h_n * h_m);
+    #endif
 
     // Swap the buffers
     tmp = u_old;
@@ -280,6 +300,50 @@ double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
 //     cudaSetDevice(current_device);
 // }
 
+
+void initGPUs(void) {
+  CUDA_SAFE_CALL(cudaSetDevice(0));
+  initGPU();
+  CUDA_SAFE_CALL(cudaSetDevice(1));
+  initGPU();
+}
+
+void run_at_gpu(int GPU_NUM, int offset, dim3 dimGr, dim3 dimBl, int BLOCK_SIZE, double *u, double *u_old, double *error_matrix)
+{
+  CUDA_SAFE_CALL(cudaSetDevice(GPU_NUM));
+
+  // run kernel
+  kernel<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3) * sizeof(double)>>>(u, u_old, error_matrix, offset); //xd /bruh
+}
+
+#ifdef CONVERGE_CHECK_TRUE
+double get_residual_error(double *error_matrix) {
+
+  int stride = h_n * h_m / 4;
+  while (stride > 0)
+  {
+    int BLOCK_SIZE = ( (stride < 1024 ? stride : 1024) );
+    dim3 dimBl(BLOCK_SIZE);
+    dim3 dimGr(FRACTION_CEILING(stride, BLOCK_SIZE));
+
+    CUDA_SAFE_CALL(cudaSetDevice(0));
+    kernel_reduce_error<<<dimGr, dimBl>>>(error_matrix, stride);
+      
+    CUDA_SAFE_CALL(cudaSetDevice(1));
+    kernel_reduce_error<<<dimGr, dimBl>>>(error_matrix + (h_n*h_m)/2, stride);
+      
+    CUDA_SAFE_CALL(cudaSetDevice(0));
+    CUDA_SAFE_CALL(cudaDeviceSynchronize());
+    CUDA_SAFE_CALL(cudaSetDevice(1));
+    CUDA_SAFE_CALL(cudaDeviceSynchronize());
+      
+    stride >>= 1;
+  }
+
+  return error_matrix[0] + error_matrix[(h_n*h_m)/2];
+}
+#endif
+
 void initGPU(void)
 { // bruh
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(n, &h_n, sizeof(int), 0, cudaMemcpyHostToDevice));
@@ -297,28 +361,4 @@ void initGPU(void)
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(yUp, &h_yUp, sizeof(double), 0, cudaMemcpyHostToDevice));
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(deltaX, &h_deltaX, sizeof(double), 0, cudaMemcpyHostToDevice));
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(deltaY, &h_deltaY, sizeof(double), 0, cudaMemcpyHostToDevice));
-}
-
-double run_at_gpu(int GPU_NUM, int offset, dim3 dimGr, dim3 dimBl, int BLOCK_SIZE, double *u, double *u_old, double *error_matrix)
-{
-  CUDA_SAFE_CALL(cudaSetDevice(GPU_NUM));
-
-  // run kernel
-  kernel<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3) * sizeof(double)>>>(u, u_old, error_matrix, offset); //xd /bruh
-
-  CUDA_SAFE_CALL(cudaDeviceSynchronize());
-
-  int stride = h_n * h_m / 4;
-  while (stride > 0)
-  {
-    int BLOCK_SIZE = ( (stride < 1024 ? stride : 1024) );
-    dim3 dimBl(BLOCK_SIZE);
-    dim3 dimGr(FRACTION_CEILING(stride, BLOCK_SIZE));
-
-    kernel_reduce_error<<<dimGr, dimBl>>>(error_matrix + offset, stride);
-    CUDA_SAFE_CALL(cudaDeviceSynchronize());
-    stride >>= 1;
-  }
-
-  return error_matrix[offset];
 }
