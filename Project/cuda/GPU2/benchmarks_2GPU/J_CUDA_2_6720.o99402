@@ -1,0 +1,6 @@
+-> 6720, 6720, 0.8, 1, 1e-13, 50
+GPU Threads used per block: 128
+Time taken: 0.910992 seconds
+Iterations: 50
+Residual: 6.87879e-12
+The error of the iterative solution is 7.93528e-05

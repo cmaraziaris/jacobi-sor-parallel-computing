@@ -1,0 +1,25 @@
+==15837== NVPROF is profiling process 15837, command: ./Jacobi_cuda
+==15837== Profiling application: ./Jacobi_cuda
+==15837== Profiling result:
+
+==15837== Device "Quadro P4000 (0)"
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:  100.00%  4.43467s        50  88.693ms  87.049ms  118.51ms  kernel(double*, double*, double*, int)
+                    0.00%  11.744us        15     782ns     736ns  1.2160us  [CUDA memcpy HtoD]
+
+==15837== Unified Memory profiling result:
+Device "Quadro P4000 (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+   16554  170.54KB  4.0000KB  0.9961MB  2.692383GB  230.5062ms  Device To Host
+     527         -         -         -           -  37.14883ms  Gpu page fault groups
+
+==15837== Device "Quadro P4000 (1)"
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:  100.00%  4.81754s        50  96.351ms  87.184ms  535.95ms  kernel(double*, double*, double*, int)
+                    0.00%  12.608us        15     840ns     736ns  1.0240us  [CUDA memcpy HtoD]
+
+==15837== Unified Memory profiling result:
+Device "Quadro P4000 (1)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+   16538  170.67KB  4.0000KB  0.9961MB  2.691723GB  447.2973ms  Device To Host
+   15318         -         -         -           -  520.6770ms  Gpu page fault groups

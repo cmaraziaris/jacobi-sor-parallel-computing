@@ -1,0 +1,11 @@
+==14603== NVPROF is profiling process 14603, command: ./Jacobi_cuda
+Cuda error in file 'Jacobi_cuda.cu' in line 164 : out of memory.
+==14603== Profiling application: ./Jacobi_cuda
+==14603== Profiling result:
+
+==14603== Device "Quadro P4000 (0)"
+No kernels were profiled.
+
+==14603== Device "Quadro P4000 (1)"
+No kernels were profiled.
+======== Error: Application returned non-zero code 1

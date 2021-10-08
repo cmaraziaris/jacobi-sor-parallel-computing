@@ -1,0 +1,31 @@
+==15343== NVPROF is profiling process 15343, command: ./Jacobi_cuda
+==15343== Profiling application: ./Jacobi_cuda
+==15343== Profiling result:
+
+==15343== Device "Quadro P4000 (0)"
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:   94.60%  1.53658s        50  30.732ms  27.129ms  40.483ms  kernel(double*, double*, double*, int)
+                    5.40%  87.773ms       950  92.392us     896ns  2.0676ms  kernel_reduce_error(double*, int)
+                    0.00%  11.328us        15     755ns     704ns  1.1520us  [CUDA memcpy HtoD]
+
+==15343== Unified Memory profiling result:
+Device "Quadro P4000 (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+      93  29.892KB  4.0000KB  60.000KB  2.714844MB  429.3450us  Host To Device
+    4236  167.47KB  4.0000KB  0.9961MB  692.7734MB  57.96630ms  Device To Host
+    3907         -         -         -           -  259.1644ms  Gpu page fault groups
+      32         -         -         -           -  749.6898ms  Page throttles
+
+==15343== Device "Quadro P4000 (1)"
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:   99.21%  1.76149s        50  35.230ms  30.761ms  134.91ms  kernel(double*, double*, double*, int)
+                    0.78%  13.935ms       950  14.668us     896ns  544.32us  kernel_reduce_error(double*, int)
+                    0.00%  11.904us        15     793ns     736ns  1.0240us  [CUDA memcpy HtoD]
+
+==15343== Unified Memory profiling result:
+Device "Quadro P4000 (1)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+      48  6.5000KB  4.0000KB  64.000KB  312.0000KB  140.0990us  Host To Device
+    4190  168.35KB  4.0000KB  0.9961MB  688.8516MB  111.7607ms  Device To Host
+   12232         -         -         -           -  442.4647ms  Gpu page fault groups
+      39         -         -         -           -  19.63816ms  Page throttles
