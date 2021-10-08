@@ -80,7 +80,7 @@ def print_metrics(metrics, title, unit_str):
 
 
 def print_graph(d, ax, fig, CONV):
-    sizes = sorted(list(set([e[1] for e in d.keys()])))
+    sizes = sorted(list(set([e[1] for e in d.keys()])))[:-1]
     x = sorted(list(set([e[0] for e in d.keys()])))
     ys = [[d[i] for i in d if i[1] == size and i[2] == CONV]
            for size in sizes]
@@ -133,6 +133,7 @@ if __name__ == "__main__":
     plt.xlabel("Processes")
     ax[0][0].set_title("w\ Allreduce")
     ax[0][1].set_title("w\out Allreduce")
+    
     print_graph(times, ax[0][0], fig, "CONV")
     ax[0][0].set_ylabel("Time")
     print_graph(speedup, ax[1][0], fig, "CONV")

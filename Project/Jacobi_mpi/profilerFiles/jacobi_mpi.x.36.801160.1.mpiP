@@ -1,0 +1,979 @@
+@ mpiP
+@ Command : jacobi_mpi.x 
+@ Version                  : 3.5.0
+@ MPIP Build date          : Nov 11 2020, 13:45:15
+@ Start time               : 2021 10 08 15:26:44
+@ Stop time                : 2021 10 08 15:26:55
+@ Timer Used               : PMPI_Wtime
+@ MPIP env var             : [null]
+@ Collector Rank           : 0
+@ Collector PID            : 801160
+@ Final Output Dir         : .
+@ Report generation        : Single collector task
+@ MPI Task Assignment      : 0 argo-c2
+@ MPI Task Assignment      : 1 argo-c2
+@ MPI Task Assignment      : 2 argo-c2
+@ MPI Task Assignment      : 3 argo-c2
+@ MPI Task Assignment      : 4 argo-c2
+@ MPI Task Assignment      : 5 argo-c2
+@ MPI Task Assignment      : 6 argo-c3
+@ MPI Task Assignment      : 7 argo-c3
+@ MPI Task Assignment      : 8 argo-c3
+@ MPI Task Assignment      : 9 argo-c3
+@ MPI Task Assignment      : 10 argo-c3
+@ MPI Task Assignment      : 11 argo-c3
+@ MPI Task Assignment      : 12 argo-c6
+@ MPI Task Assignment      : 13 argo-c6
+@ MPI Task Assignment      : 14 argo-c6
+@ MPI Task Assignment      : 15 argo-c6
+@ MPI Task Assignment      : 16 argo-c6
+@ MPI Task Assignment      : 17 argo-c6
+@ MPI Task Assignment      : 18 argo-c7
+@ MPI Task Assignment      : 19 argo-c7
+@ MPI Task Assignment      : 20 argo-c7
+@ MPI Task Assignment      : 21 argo-c7
+@ MPI Task Assignment      : 22 argo-c7
+@ MPI Task Assignment      : 23 argo-c7
+@ MPI Task Assignment      : 24 argo-c8
+@ MPI Task Assignment      : 25 argo-c8
+@ MPI Task Assignment      : 26 argo-c8
+@ MPI Task Assignment      : 27 argo-c8
+@ MPI Task Assignment      : 28 argo-c8
+@ MPI Task Assignment      : 29 argo-c8
+@ MPI Task Assignment      : 30 argo-c9
+@ MPI Task Assignment      : 31 argo-c9
+@ MPI Task Assignment      : 32 argo-c9
+@ MPI Task Assignment      : 33 argo-c9
+@ MPI Task Assignment      : 34 argo-c9
+@ MPI Task Assignment      : 35 argo-c9
+
+---------------------------------------------------------------------------
+@--- MPI Time (seconds) ---------------------------------------------------
+---------------------------------------------------------------------------
+Task    AppTime    MPITime     MPI%
+   0       5.51      0.147     2.67
+   1       5.49       0.14     2.55
+   2        5.5      0.157     2.86
+   3        5.5      0.139     2.52
+   4       5.51       2.42    43.92
+   5       5.51       2.42    43.85
+   6        5.5      0.124     2.25
+   7        5.5      0.149     2.71
+   8       5.51      0.143     2.59
+   9       5.51       0.14     2.54
+  10        5.5        2.4    43.57
+  11        5.5       2.39    43.50
+  12       5.51      0.149     2.70
+  13       5.51      0.136     2.48
+  14        5.5      0.146     2.65
+  15        5.5      0.128     2.32
+  16       5.51       2.41    43.66
+  17       5.49       2.38    43.31
+  18        5.5      0.146     2.66
+  19        5.5      0.127     2.31
+  20       5.51      0.148     2.68
+  21       5.49      0.137     2.49
+  22        5.5       2.39    43.46
+  23        5.5        2.4    43.59
+  24       5.51      0.167     3.03
+  25       5.51      0.156     2.83
+  26        5.5      0.162     2.94
+  27        5.5      0.146     2.66
+  28       5.51       2.42    43.96
+  29       5.51       2.42    43.91
+  30        5.5      0.159     2.89
+  31        5.5      0.172     3.12
+  32       5.51      0.155     2.80
+  33       5.49      0.132     2.41
+  34        5.5       2.39    43.44
+  35        5.5        2.4    43.56
+   *        198       32.3    16.32
+---------------------------------------------------------------------------
+@--- Callsites: 180 -------------------------------------------------------
+---------------------------------------------------------------------------
+ ID Lev File/Address        Line Parent_Funct             MPI_Call
+  1   0 0x4028e3                 [unknown]                Waitall
+  2   0 0x40288a                 [unknown]                Allreduce
+  3   0 0x40212a                 [unknown]                Waitall
+  4   0 0x401d49                 [unknown]                Startall
+  5   0 0x401d38                 [unknown]                Startall
+  6   0 0x14f20e938c34           [unknown]                Waitall
+  7   0 0x14f20e92ac32           [unknown]                Allreduce
+  8   0 0x14f20e938c34           [unknown]                Waitall
+  9   0 0x14f20e937c3d           [unknown]                Startall
+ 10   0 0x14f20e937c3d           [unknown]                Startall
+ 11   0 0x14f900173c34           [unknown]                Waitall
+ 12   0 0x14f900165c32           [unknown]                Allreduce
+ 13   0 0x14f900173c34           [unknown]                Waitall
+ 14   0 0x14f900172c3d           [unknown]                Startall
+ 15   0 0x14f900172c3d           [unknown]                Startall
+ 16   0 0x14885f1f4c34           [unknown]                Waitall
+ 17   0 0x14885f1e6c32           [unknown]                Allreduce
+ 18   0 0x14885f1f4c34           [unknown]                Waitall
+ 19   0 0x14885f1f3c3d           [unknown]                Startall
+ 20   0 0x14885f1f3c3d           [unknown]                Startall
+ 21   0 0x15077bfc0c34           [unknown]                Waitall
+ 22   0 0x15077bfb2c32           [unknown]                Allreduce
+ 23   0 0x15077bfc0c34           [unknown]                Waitall
+ 24   0 0x15077bfbfc3d           [unknown]                Startall
+ 25   0 0x15077bfbfc3d           [unknown]                Startall
+ 26   0 0x153f87c43c34           [unknown]                Waitall
+ 27   0 0x153f87c35c32           [unknown]                Allreduce
+ 28   0 0x153f87c43c34           [unknown]                Waitall
+ 29   0 0x153f87c42c3d           [unknown]                Startall
+ 30   0 0x153f87c42c3d           [unknown]                Startall
+ 31   0 0x15246a68cc34           [unknown]                Waitall
+ 32   0 0x15246a67ec32           [unknown]                Allreduce
+ 33   0 0x15246a68cc34           [unknown]                Waitall
+ 34   0 0x15246a68bc3d           [unknown]                Startall
+ 35   0 0x15246a68bc3d           [unknown]                Startall
+ 36   0 0x1471613c7c34           [unknown]                Waitall
+ 37   0 0x1471613b9c32           [unknown]                Allreduce
+ 38   0 0x1471613c7c34           [unknown]                Waitall
+ 39   0 0x1471613c6c3d           [unknown]                Startall
+ 40   0 0x1471613c6c3d           [unknown]                Startall
+ 41   0 0x146479469c34           [unknown]                Waitall
+ 42   0 0x14647945bc32           [unknown]                Allreduce
+ 43   0 0x146479469c34           [unknown]                Waitall
+ 44   0 0x146479468c3d           [unknown]                Startall
+ 45   0 0x146479468c3d           [unknown]                Startall
+ 46   0 0x146d0fdcfc34           [unknown]                Waitall
+ 47   0 0x146d0fdc1c32           [unknown]                Allreduce
+ 48   0 0x146d0fdcfc34           [unknown]                Waitall
+ 49   0 0x146d0fdcec3d           [unknown]                Startall
+ 50   0 0x146d0fdcec3d           [unknown]                Startall
+ 51   0 0x14d87415fc34           [unknown]                Waitall
+ 52   0 0x14d874151c32           [unknown]                Allreduce
+ 53   0 0x14d87415fc34           [unknown]                Waitall
+ 54   0 0x14d87415ec3d           [unknown]                Startall
+ 55   0 0x14d87415ec3d           [unknown]                Startall
+ 56   0 0x1524927e9c34           [unknown]                Waitall
+ 57   0 0x1524927dbc32           [unknown]                Allreduce
+ 58   0 0x1524927e9c34           [unknown]                Waitall
+ 59   0 0x1524927e8c3d           [unknown]                Startall
+ 60   0 0x1524927e8c3d           [unknown]                Startall
+ 61   0 0x14687b6bfc34           [unknown]                Waitall
+ 62   0 0x14687b6b1c32           [unknown]                Allreduce
+ 63   0 0x14687b6bfc34           [unknown]                Waitall
+ 64   0 0x14687b6bec3d           [unknown]                Startall
+ 65   0 0x14687b6bec3d           [unknown]                Startall
+ 66   0 0x1467ffd78c34           [unknown]                Waitall
+ 67   0 0x1467ffd6ac32           [unknown]                Allreduce
+ 68   0 0x1467ffd78c34           [unknown]                Waitall
+ 69   0 0x1467ffd77c3d           [unknown]                Startall
+ 70   0 0x1467ffd77c3d           [unknown]                Startall
+ 71   0 0x145ca8ca3c34           [unknown]                Waitall
+ 72   0 0x145ca8c95c32           [unknown]                Allreduce
+ 73   0 0x145ca8ca3c34           [unknown]                Waitall
+ 74   0 0x145ca8ca2c3d           [unknown]                Startall
+ 75   0 0x145ca8ca2c3d           [unknown]                Startall
+ 76   0 0x14ea59c96c34           [unknown]                Waitall
+ 77   0 0x14ea59c88c32           [unknown]                Allreduce
+ 78   0 0x14ea59c96c34           [unknown]                Waitall
+ 79   0 0x14ea59c95c3d           [unknown]                Startall
+ 80   0 0x14ea59c95c3d           [unknown]                Startall
+ 81   0 0x146834abbc34           [unknown]                Waitall
+ 82   0 0x146834aadc32           [unknown]                Allreduce
+ 83   0 0x146834abbc34           [unknown]                Waitall
+ 84   0 0x146834abac3d           [unknown]                Startall
+ 85   0 0x146834abac3d           [unknown]                Startall
+ 86   0 0x14c689b44c34           [unknown]                Waitall
+ 87   0 0x14c689b36c32           [unknown]                Allreduce
+ 88   0 0x14c689b44c34           [unknown]                Waitall
+ 89   0 0x14c689b43c3d           [unknown]                Startall
+ 90   0 0x14c689b43c3d           [unknown]                Startall
+ 91   0 0x14de9ef13c34           [unknown]                Waitall
+ 92   0 0x14de9ef05c32           [unknown]                Allreduce
+ 93   0 0x14de9ef13c34           [unknown]                Waitall
+ 94   0 0x14de9ef12c3d           [unknown]                Startall
+ 95   0 0x14de9ef12c3d           [unknown]                Startall
+ 96   0 0x15051f8eec34           [unknown]                Waitall
+ 97   0 0x15051f8e0c32           [unknown]                Allreduce
+ 98   0 0x15051f8eec34           [unknown]                Waitall
+ 99   0 0x15051f8edc3d           [unknown]                Startall
+100   0 0x15051f8edc3d           [unknown]                Startall
+101   0 0x153ccdf39c34           [unknown]                Waitall
+102   0 0x153ccdf2bc32           [unknown]                Allreduce
+103   0 0x153ccdf39c34           [unknown]                Waitall
+104   0 0x153ccdf38c3d           [unknown]                Startall
+105   0 0x153ccdf38c3d           [unknown]                Startall
+106   0 0x154ccc0d6c34           [unknown]                Waitall
+107   0 0x154ccc0c8c32           [unknown]                Allreduce
+108   0 0x154ccc0d6c34           [unknown]                Waitall
+109   0 0x154ccc0d5c3d           [unknown]                Startall
+110   0 0x154ccc0d5c3d           [unknown]                Startall
+111   0 0x14d00e6a1c34           [unknown]                Waitall
+112   0 0x14d00e693c32           [unknown]                Allreduce
+113   0 0x14d00e6a1c34           [unknown]                Waitall
+114   0 0x14d00e6a0c3d           [unknown]                Startall
+115   0 0x14d00e6a0c3d           [unknown]                Startall
+116   0 0x14b53c725c34           [unknown]                Waitall
+117   0 0x14b53c717c32           [unknown]                Allreduce
+118   0 0x14b53c725c34           [unknown]                Waitall
+119   0 0x14b53c724c3d           [unknown]                Startall
+120   0 0x14b53c724c3d           [unknown]                Startall
+121   0 0x148614540c34           [unknown]                Waitall
+122   0 0x148614532c32           [unknown]                Allreduce
+123   0 0x148614540c34           [unknown]                Waitall
+124   0 0x14861453fc3d           [unknown]                Startall
+125   0 0x14861453fc3d           [unknown]                Startall
+126   0 0x14940753cc34           [unknown]                Waitall
+127   0 0x14940752ec32           [unknown]                Allreduce
+128   0 0x14940753cc34           [unknown]                Waitall
+129   0 0x14940753bc3d           [unknown]                Startall
+130   0 0x14940753bc3d           [unknown]                Startall
+131   0 0x14c72f799c34           [unknown]                Waitall
+132   0 0x14c72f78bc32           [unknown]                Allreduce
+133   0 0x14c72f799c34           [unknown]                Waitall
+134   0 0x14c72f798c3d           [unknown]                Startall
+135   0 0x14c72f798c3d           [unknown]                Startall
+136   0 0x14fe99172c32           [unknown]                Allreduce
+137   0 0x14fe99180c34           [unknown]                Waitall
+138   0 0x14fe9917fc3d           [unknown]                Startall
+139   0 0x14fe99180c34           [unknown]                Waitall
+140   0 0x14fe9917fc3d           [unknown]                Startall
+141   0 0x145a95a1dc34           [unknown]                Waitall
+142   0 0x145a95a0fc32           [unknown]                Allreduce
+143   0 0x145a95a1dc34           [unknown]                Waitall
+144   0 0x145a95a1cc3d           [unknown]                Startall
+145   0 0x145a95a1cc3d           [unknown]                Startall
+146   0 0x14ec4f3ddc34           [unknown]                Waitall
+147   0 0x14ec4f3cfc32           [unknown]                Allreduce
+148   0 0x14ec4f3ddc34           [unknown]                Waitall
+149   0 0x14ec4f3dcc3d           [unknown]                Startall
+150   0 0x14ec4f3dcc3d           [unknown]                Startall
+151   0 0x14e451d90c32           [unknown]                Allreduce
+152   0 0x14e451d9ec34           [unknown]                Waitall
+153   0 0x14e451d9dc3d           [unknown]                Startall
+154   0 0x14e451d9ec34           [unknown]                Waitall
+155   0 0x14e451d9dc3d           [unknown]                Startall
+156   0 0x14de1e9cec32           [unknown]                Allreduce
+157   0 0x14de1e9dcc34           [unknown]                Waitall
+158   0 0x14de1e9dbc3d           [unknown]                Startall
+159   0 0x14de1e9dcc34           [unknown]                Waitall
+160   0 0x14de1e9dbc3d           [unknown]                Startall
+161   0 0x147d99359c32           [unknown]                Allreduce
+162   0 0x147d99367c34           [unknown]                Waitall
+163   0 0x147d99366c3d           [unknown]                Startall
+164   0 0x147d99367c34           [unknown]                Waitall
+165   0 0x147d99366c3d           [unknown]                Startall
+166   0 0x1514d76b2c34           [unknown]                Waitall
+167   0 0x1514d76a4c32           [unknown]                Allreduce
+168   0 0x1514d76b2c34           [unknown]                Waitall
+169   0 0x1514d76b1c3d           [unknown]                Startall
+170   0 0x1514d76b1c3d           [unknown]                Startall
+171   0 0x151365461c34           [unknown]                Waitall
+172   0 0x151365453c32           [unknown]                Allreduce
+173   0 0x151365461c34           [unknown]                Waitall
+174   0 0x151365460c3d           [unknown]                Startall
+175   0 0x151365460c3d           [unknown]                Startall
+176   0 0x1499a9c79c34           [unknown]                Waitall
+177   0 0x1499a9c6bc32           [unknown]                Allreduce
+178   0 0x1499a9c79c34           [unknown]                Waitall
+179   0 0x1499a9c78c3d           [unknown]                Startall
+180   0 0x1499a9c78c3d           [unknown]                Startall
+---------------------------------------------------------------------------
+@--- Aggregate Time (top twenty, descending, milliseconds) ----------------
+---------------------------------------------------------------------------
+Call                 Site       Time    App%    MPI%      Count    COV
+Allreduce               7   2.36e+03    1.19    7.31         50   0.00
+Allreduce              82   2.36e+03    1.19    7.29         50   0.00
+Allreduce              37   2.32e+03    1.17    7.18         50   0.00
+Allreduce             136   2.32e+03    1.17    7.18         50   0.00
+Allreduce              42   2.32e+03    1.17    7.18         50   0.00
+Allreduce              97   2.32e+03    1.17    7.17         50   0.00
+Waitall                48   2.31e+03    1.16    7.14         50   0.00
+Waitall               178   2.29e+03    1.16    7.10         50   0.00
+Waitall               168   2.29e+03    1.16    7.08         50   0.00
+Waitall                33   2.28e+03    1.15    7.05         50   0.00
+Waitall               154   2.26e+03    1.14    6.98         50   0.00
+Waitall                53   2.26e+03    1.14    6.98         50   0.00
+Allreduce              32        137    0.07    0.42         50   0.00
+Allreduce             151        128    0.06    0.39         50   0.00
+Allreduce              52        126    0.06    0.39         50   0.00
+Allreduce             167        124    0.06    0.38         50   0.00
+Waitall                73        106    0.05    0.33         50   0.00
+Allreduce             177        103    0.05    0.32         50   0.00
+Waitall               118       99.1    0.05    0.31         50   0.00
+Waitall               123       98.5    0.05    0.30         50   0.00
+---------------------------------------------------------------------------
+@--- Aggregate Sent Message Size (top twenty, descending, bytes) ----------
+---------------------------------------------------------------------------
+Call                 Site      Count      Total       Avrg  Sent%
+Allreduce             132         50        400          8   2.78
+Allreduce             136         50        400          8   2.78
+Allreduce             142         50        400          8   2.78
+Allreduce             147         50        400          8   2.78
+Allreduce             151         50        400          8   2.78
+Allreduce             156         50        400          8   2.78
+Allreduce             161         50        400          8   2.78
+Allreduce             167         50        400          8   2.78
+Allreduce             172         50        400          8   2.78
+Allreduce             177         50        400          8   2.78
+Allreduce              67         50        400          8   2.78
+Allreduce              72         50        400          8   2.78
+Allreduce              77         50        400          8   2.78
+Allreduce              82         50        400          8   2.78
+Allreduce              87         50        400          8   2.78
+Allreduce              92         50        400          8   2.78
+Allreduce              97         50        400          8   2.78
+Allreduce             102         50        400          8   2.78
+Allreduce             107         50        400          8   2.78
+Allreduce             112         50        400          8   2.78
+---------------------------------------------------------------------------
+@--- Callsite Time statistics (all, milliseconds): 180 --------------------
+---------------------------------------------------------------------------
+Name              Site Rank  Count      Max     Mean      Min   App%   MPI%
+Allreduce            2    0     50     3.63     0.95    0.461   0.86  32.29
+Allreduce            2    *     50     3.63     0.95    0.461   0.02   0.15
+
+Allreduce            7    5     50     76.4     47.2     36.1  42.87  97.77
+Allreduce            7    *     50     76.4     47.2     36.1   1.19   7.31
+
+Allreduce           12    2     50      4.7     1.03     0.64   0.93  32.67
+Allreduce           12    *     50      4.7     1.03     0.64   0.03   0.16
+
+Allreduce           17    3     50     4.33    0.991    0.619   0.90  35.78
+Allreduce           17    *     50     4.33    0.991    0.619   0.03   0.15
+
+Allreduce           22    1     50      3.7    0.932     0.63   0.85  33.33
+Allreduce           22    *     50      3.7    0.932     0.63   0.02   0.14
+
+Allreduce           27   21     50     5.81    0.724    0.236   0.66  26.51
+Allreduce           27    *     50     5.81    0.724    0.236   0.02   0.11
+
+Allreduce           32    4     50     68.3     2.74      1.1   2.49   5.67
+Allreduce           32    *     50     68.3     2.74      1.1   0.07   0.42
+
+Allreduce           37   11     50     58.3     46.4     39.8  42.20  96.99
+Allreduce           37    *     50     58.3     46.4     39.8   1.17   7.18
+
+Allreduce           42   23     50     57.1     46.4     40.1  42.16  96.73
+Allreduce           42    *     50     57.1     46.4     40.1   1.17   7.18
+
+Allreduce           47   10     50     26.7      1.6     0.84   1.46   3.35
+Allreduce           47    *     50     26.7      1.6     0.84   0.04   0.25
+
+Allreduce           52   22     50     64.6     2.52    0.812   2.29   5.27
+Allreduce           52    *     50     64.6     2.52    0.812   0.06   0.39
+
+Allreduce           57    6     50     6.11    0.689    0.324   0.63  27.81
+Allreduce           57    *     50     6.11    0.689    0.324   0.02   0.11
+
+Allreduce           62   20     50     11.6    0.821    0.263   0.74  27.77
+Allreduce           62    *     50     11.6    0.821    0.263   0.02   0.13
+
+Allreduce           67   13     50     16.2    0.671   0.0827   0.61  24.58
+Allreduce           67    *     50     16.2    0.671   0.0827   0.02   0.10
+
+Allreduce           72    7     50     5.92    0.661    0.304   0.60  22.18
+Allreduce           72    *     50     5.92    0.661    0.304   0.02   0.10
+
+Allreduce           77   19     50     30.3    0.788   0.0684   0.72  30.98
+Allreduce           77    *     50     30.3    0.788   0.0684   0.02   0.12
+
+Allreduce           82   29     50     67.7     47.2     46.5  42.81  97.49
+Allreduce           82    *     50     67.7     47.2     46.5   1.19   7.29
+
+Allreduce           87    9     50     12.4    0.849    0.366   0.77  30.33
+Allreduce           87    *     50     12.4    0.849    0.366   0.02   0.13
+
+Allreduce           92    8     50     12.6    0.875    0.342   0.79  30.66
+Allreduce           92    *     50     12.6    0.875    0.342   0.02   0.14
+
+Allreduce           97   17     50     50.3     46.4       46  42.22  97.49
+Allreduce           97    *     50     50.3     46.4       46   1.17   7.17
+
+Allreduce          102   15     50     8.73    0.536     0.16   0.49  21.01
+Allreduce          102    *     50     8.73    0.536     0.16   0.01   0.08
+
+Allreduce          107   25     50     18.8     1.01     0.29   0.91  32.27
+Allreduce          107    *     50     18.8     1.01     0.29   0.03   0.16
+
+Allreduce          112   31     50     35.3     1.62    0.627   1.47  47.18
+Allreduce          112    *     50     35.3     1.62    0.627   0.04   0.25
+
+Allreduce          117   12     50     16.3    0.795    0.137   0.72  26.70
+Allreduce          117    *     50     16.3    0.795    0.137   0.02   0.12
+
+Allreduce          122   18     50     18.4    0.828    0.203   0.75  28.30
+Allreduce          122    *     50     18.4    0.828    0.203   0.02   0.13
+
+Allreduce          127   27     50     24.3     1.26    0.398   1.14  42.93
+Allreduce          127    *     50     24.3     1.26    0.398   0.03   0.19
+
+Allreduce          132   26     50     21.4     1.09     0.18   0.99  33.65
+Allreduce          132    *     50     21.4     1.09     0.18   0.03   0.17
+
+Allreduce          136   35     50       52     46.4     38.4  42.16  96.78
+Allreduce          136    *     50       52     46.4     38.4   1.17   7.18
+
+Allreduce          142   14     50     22.5    0.818    0.111   0.74  28.08
+Allreduce          142    *     50     22.5    0.818    0.111   0.02   0.13
+
+Allreduce          147   30     50     22.1     1.43    0.605   1.30  44.84
+Allreduce          147    *     50     22.1     1.43    0.605   0.04   0.22
+
+Allreduce          151   34     50       52     2.55     1.12   2.32   5.34
+Allreduce          151    *     50       52     2.55     1.12   0.06   0.39
+
+Allreduce          156   33     50     4.92     1.02    0.609   0.93  38.71
+Allreduce          156    *     50     4.92     1.02    0.609   0.03   0.16
+
+Allreduce          161   32     50     21.2     1.35     0.63   1.22  43.57
+Allreduce          161    *     50     21.2     1.35     0.63   0.03   0.21
+
+Allreduce          167   28     50     51.8     2.48    0.828   2.25   5.13
+Allreduce          167    *     50     51.8     2.48    0.828   0.06   0.38
+
+Allreduce          172   24     50     18.4     1.18    0.415   1.07  35.28
+Allreduce          172    *     50     18.4     1.18    0.415   0.03   0.18
+
+Allreduce          177   16     50     50.1     2.05    0.653   1.86   4.27
+Allreduce          177    *     50     50.1     2.05    0.653   0.05   0.32
+
+Startall             4    0     50    0.177    0.108   0.0624   0.10   3.66
+Startall             4    *     50    0.177    0.108   0.0624   0.00   0.02
+
+Startall             5    0     50    0.166   0.0161  0.00834   0.01   0.55
+Startall             5    *     50    0.166   0.0161  0.00834   0.00   0.00
+
+Startall             9    5     50     0.12   0.0569   0.0371   0.05   0.12
+Startall             9    *     50     0.12   0.0569   0.0371   0.00   0.01
+
+Startall            10    5     50    0.137    0.016  0.00754   0.01   0.03
+Startall            10    *     50    0.137    0.016  0.00754   0.00   0.00
+
+Startall            14    2     50    0.454   0.0957   0.0625   0.09   3.04
+Startall            14    *     50    0.454   0.0957   0.0625   0.00   0.01
+
+Startall            15    2     50     3.25   0.0788  0.00969   0.07   2.50
+Startall            15    *     50     3.25   0.0788  0.00969   0.00   0.01
+
+Startall            19    3     50    0.522    0.106   0.0606   0.10   3.83
+Startall            19    *     50    0.522    0.106   0.0606   0.00   0.02
+
+Startall            20    3     50     3.26   0.0791  0.00945   0.07   2.86
+Startall            20    *     50     3.26   0.0791  0.00945   0.00   0.01
+
+Startall            24    1     50    0.248    0.137   0.0607   0.12   4.90
+Startall            24    *     50    0.248    0.137   0.0607   0.00   0.02
+
+Startall            25    1     50     3.47   0.0832  0.00963   0.08   2.98
+Startall            25    *     50     3.47   0.0832  0.00963   0.00   0.01
+
+Startall            29   21     50    0.226    0.147    0.104   0.13   5.37
+Startall            29    *     50    0.226    0.147    0.104   0.00   0.02
+
+Startall            30   21     50     3.23    0.078  0.00843   0.07   2.86
+Startall            30    *     50     3.23    0.078  0.00843   0.00   0.01
+
+Startall            34    4     50    0.359   0.0618   0.0422   0.06   0.13
+Startall            34    *     50    0.359   0.0618   0.0422   0.00   0.01
+
+Startall            35    4     50    0.168    0.015  0.00932   0.01   0.03
+Startall            35    *     50    0.168    0.015  0.00932   0.00   0.00
+
+Startall            39   11     50    0.237    0.115   0.0695   0.10   0.24
+Startall            39    *     50    0.237    0.115   0.0695   0.00   0.02
+
+Startall            40   11     50    0.191   0.0152  0.00805   0.01   0.03
+Startall            40    *     50    0.191   0.0152  0.00805   0.00   0.00
+
+Startall            44   23     50    0.326    0.135   0.0685   0.12   0.28
+Startall            44    *     50    0.326    0.135   0.0685   0.00   0.02
+
+Startall            45   23     50    0.216    0.017  0.00796   0.02   0.04
+Startall            45    *     50    0.216    0.017  0.00796   0.00   0.00
+
+Startall            49   10     50    0.318    0.135   0.0794   0.12   0.28
+Startall            49    *     50    0.318    0.135   0.0794   0.00   0.02
+
+Startall            50   10     50     1.33   0.0412  0.00836   0.04   0.09
+Startall            50    *     50     1.33   0.0412  0.00836   0.00   0.01
+
+Startall            54   22     50    0.418    0.123   0.0631   0.11   0.26
+Startall            54    *     50    0.418    0.123   0.0631   0.00   0.02
+
+Startall            55   22     50     1.46   0.0446  0.00816   0.04   0.09
+Startall            55    *     50     1.46   0.0446  0.00816   0.00   0.01
+
+Startall            59    6     50     0.54    0.403    0.122   0.37  16.26
+Startall            59    *     50     0.54    0.403    0.122   0.01   0.06
+
+Startall            60    6     50    0.209   0.0203  0.00943   0.02   0.82
+Startall            60    *     50    0.209   0.0203  0.00943   0.00   0.00
+
+Startall            64   20     50    0.406      0.2    0.106   0.18   6.75
+Startall            64    *     50    0.406      0.2    0.106   0.01   0.03
+
+Startall            65   20     50    0.191     0.02  0.00906   0.02   0.67
+Startall            65    *     50    0.191     0.02  0.00906   0.00   0.00
+
+Startall            69   13     50    0.391    0.197   0.0933   0.18   7.23
+Startall            69    *     50    0.391    0.197   0.0933   0.00   0.03
+
+Startall            70   13     50    0.127   0.0277  0.00947   0.03   1.02
+Startall            70    *     50    0.127   0.0277  0.00947   0.00   0.00
+
+Startall            74    7     50    0.256    0.164    0.131   0.15   5.51
+Startall            74    *     50    0.256    0.164    0.131   0.00   0.03
+
+Startall            75    7     50    0.234   0.0224  0.00967   0.02   0.75
+Startall            75    *     50    0.234   0.0224  0.00967   0.00   0.00
+
+Startall            79   19     50    0.324    0.107   0.0652   0.10   4.22
+Startall            79    *     50    0.324    0.107   0.0652   0.00   0.02
+
+Startall            80   19     50    0.269   0.0182  0.00753   0.02   0.72
+Startall            80    *     50    0.269   0.0182  0.00753   0.00   0.00
+
+Startall            84   29     50    0.224    0.123   0.0716   0.11   0.26
+Startall            84    *     50    0.224    0.123   0.0716   0.00   0.02
+
+Startall            85   29     50    0.131   0.0157  0.00794   0.01   0.03
+Startall            85    *     50    0.131   0.0157  0.00794   0.00   0.00
+
+Startall            89    9     50    0.313    0.198    0.113   0.18   7.08
+Startall            89    *     50    0.313    0.198    0.113   0.01   0.03
+
+Startall            90    9     50    0.227   0.0221  0.00895   0.02   0.79
+Startall            90    *     50    0.227   0.0221  0.00895   0.00   0.00
+
+Startall            94    8     50     0.37     0.17    0.122   0.15   5.94
+Startall            94    *     50     0.37     0.17    0.122   0.00   0.03
+
+Startall            95    8     50    0.204   0.0178  0.00841   0.02   0.63
+Startall            95    *     50    0.204   0.0178  0.00841   0.00   0.00
+
+Startall            99   17     50    0.223    0.116   0.0692   0.11   0.24
+Startall            99    *     50    0.223    0.116   0.0692   0.00   0.02
+
+Startall           100   17     50      1.8   0.0531  0.00837   0.05   0.11
+Startall           100    *     50      1.8   0.0531  0.00837   0.00   0.01
+
+Startall           104   15     50    0.391    0.205   0.0809   0.19   8.05
+Startall           104    *     50    0.391    0.205   0.0809   0.01   0.03
+
+Startall           105   15     50    0.231   0.0187  0.00842   0.02   0.73
+Startall           105    *     50    0.231   0.0187  0.00842   0.00   0.00
+
+Startall           109   25     50    0.618    0.373    0.079   0.34  11.94
+Startall           109    *     50    0.618    0.373    0.079   0.01   0.06
+
+Startall           110   25     50    0.204   0.0199  0.00826   0.02   0.64
+Startall           110    *     50    0.204   0.0199  0.00826   0.00   0.00
+
+Startall           114   31     50    0.167   0.0807   0.0473   0.07   2.35
+Startall           114    *     50    0.167   0.0807   0.0473   0.00   0.01
+
+Startall           115   31     50    0.175   0.0159  0.00803   0.01   0.46
+Startall           115    *     50    0.175   0.0159  0.00803   0.00   0.00
+
+Startall           119   12     50    0.338    0.157    0.113   0.14   5.28
+Startall           119    *     50    0.338    0.157    0.113   0.00   0.02
+
+Startall           120   12     50    0.389   0.0313   0.0091   0.03   1.05
+Startall           120    *     50    0.389   0.0313   0.0091   0.00   0.00
+
+Startall           124   18     50    0.305   0.0971   0.0592   0.09   3.32
+Startall           124    *     50    0.305   0.0971   0.0592   0.00   0.02
+
+Startall           125   18     50    0.269    0.022  0.00743   0.02   0.75
+Startall           125    *     50    0.269    0.022  0.00743   0.00   0.00
+
+Startall           129   27     50     0.56    0.232   0.0994   0.21   7.93
+Startall           129    *     50     0.56    0.232   0.0994   0.01   0.04
+
+Startall           130   27     50    0.356   0.0228  0.00806   0.02   0.78
+Startall           130    *     50    0.356   0.0228  0.00806   0.00   0.00
+
+Startall           134   26     50    0.501    0.168    0.109   0.15   5.21
+Startall           134    *     50    0.501    0.168    0.109   0.00   0.03
+
+Startall           135   26     50     2.78   0.0773  0.00846   0.07   2.39
+Startall           135    *     50     2.78   0.0773  0.00846   0.00   0.01
+
+Startall           138   35     50    0.172   0.0501   0.0343   0.05   0.10
+Startall           138    *     50    0.172   0.0501   0.0343   0.00   0.01
+
+Startall           140   35     50     0.16    0.013  0.00796   0.01   0.03
+Startall           140    *     50     0.16    0.013  0.00796   0.00   0.00
+
+Startall           144   14     50    0.261    0.128   0.0981   0.12   4.40
+Startall           144    *     50    0.261    0.128   0.0981   0.00   0.02
+
+Startall           145   14     50     0.28   0.0256  0.00932   0.02   0.88
+Startall           145    *     50     0.28   0.0256  0.00932   0.00   0.00
+
+Startall           149   30     50    0.225   0.0921   0.0527   0.08   2.89
+Startall           149    *     50    0.225   0.0921   0.0527   0.00   0.01
+
+Startall           150   30     50    0.219   0.0186  0.00809   0.02   0.58
+Startall           150    *     50    0.219   0.0186  0.00809   0.00   0.00
+
+Startall           153   34     50    0.249   0.0665   0.0414   0.06   0.14
+Startall           153    *     50    0.249   0.0665   0.0414   0.00   0.01
+
+Startall           155   34     50    0.196    0.017  0.00785   0.02   0.04
+Startall           155    *     50    0.196    0.017  0.00785   0.00   0.00
+
+Startall           158   33     50    0.203   0.0824   0.0427   0.07   3.11
+Startall           158    *     50    0.203   0.0824   0.0427   0.00   0.01
+
+Startall           160   33     50    0.369   0.0196   0.0098   0.02   0.74
+Startall           160    *     50    0.369   0.0196   0.0098   0.00   0.00
+
+Startall           163   32     50    0.256   0.0846   0.0617   0.08   2.74
+Startall           163    *     50    0.256   0.0846   0.0617   0.00   0.01
+
+Startall           165   32     50    0.139   0.0159  0.00838   0.01   0.52
+Startall           165    *     50    0.139   0.0159  0.00838   0.00   0.00
+
+Startall           169   28     50    0.356    0.154   0.0884   0.14   0.32
+Startall           169    *     50    0.356    0.154   0.0884   0.00   0.02
+
+Startall           170   28     50    0.144   0.0147  0.00801   0.01   0.03
+Startall           170    *     50    0.144   0.0147  0.00801   0.00   0.00
+
+Startall           174   24     50    0.254    0.168   0.0892   0.15   5.03
+Startall           174    *     50    0.254    0.168   0.0892   0.00   0.03
+
+Startall           175   24     50     0.15   0.0197  0.00875   0.02   0.59
+Startall           175    *     50     0.15   0.0197  0.00875   0.00   0.00
+
+Startall           179   16     50    0.344    0.147   0.0711   0.13   0.31
+Startall           179    *     50    0.344    0.147   0.0711   0.00   0.02
+
+Startall           180   16     50    0.211   0.0165  0.00772   0.01   0.03
+Startall           180    *     50    0.211   0.0165  0.00772   0.00   0.00
+
+Waitall              1    0     50   0.0199  0.00742   0.0066   0.01   0.25
+Waitall              1    *     50   0.0199  0.00742   0.0066   0.00   0.00
+
+Waitall              3    0     50     61.9     1.86    0.206   1.69  63.25
+Waitall              3    *     50     61.9     1.86    0.206   0.05   0.29
+
+Waitall              6    5     50    0.032  0.00922  0.00679   0.01   0.02
+Waitall              6    *     50    0.032  0.00922  0.00679   0.00   0.00
+
+Waitall              8    5     50     33.8    0.994    0.261   0.90   2.06
+Waitall              8    *     50     33.8    0.994    0.261   0.03   0.15
+
+Waitall             11    2     50    0.017  0.00774  0.00639   0.01   0.25
+Waitall             11    *     50    0.017  0.00774  0.00639   0.00   0.00
+
+Waitall             13    2     50     50.7     1.94    0.655   1.76  61.54
+Waitall             13    *     50     50.7     1.94    0.655   0.05   0.30
+
+Waitall             16    3     50    0.053  0.00887  0.00675   0.01   0.32
+Waitall             16    *     50    0.053  0.00887  0.00675   0.00   0.00
+
+Waitall             18    3     50     50.8     1.58    0.467   1.44  57.21
+Waitall             18    *     50     50.8     1.58    0.467   0.04   0.25
+
+Waitall             21    1     50    0.014   0.0073  0.00662   0.01   0.26
+Waitall             21    *     50    0.014   0.0073  0.00662   0.00   0.00
+
+Waitall             23    1     50     49.5     1.64     0.52   1.49  58.54
+Waitall             23    *     50     49.5     1.64     0.52   0.04   0.25
+
+Waitall             26   21     50   0.0242  0.00855   0.0068   0.01   0.31
+Waitall             26    *     50   0.0242  0.00855   0.0068   0.00   0.00
+
+Waitall             28   21     50     45.7     1.77    0.617   1.62  64.95
+Waitall             28    *     50     45.7     1.77    0.617   0.04   0.27
+
+Waitall             31    4     50   0.0693  0.00798  0.00651   0.01   0.02
+Waitall             31    *     50   0.0693  0.00798  0.00651   0.00   0.00
+
+Waitall             33    4     50     46.1     45.6     31.5  41.36  94.16
+Waitall             33    *     50     46.1     45.6     31.5   1.15   7.05
+
+Waitall             36   11     50   0.0282  0.00835  0.00672   0.01   0.02
+Waitall             36    *     50   0.0282  0.00835  0.00672   0.00   0.00
+
+Waitall             38   11     50     33.8      1.3    0.289   1.18   2.72
+Waitall             38    *     50     33.8      1.3    0.289   0.03   0.20
+
+Waitall             41   23     50    0.113  0.00998  0.00671   0.01   0.02
+Waitall             41    *     50    0.113  0.00998  0.00671   0.00   0.00
+
+Waitall             43   23     50     34.5     1.41    0.315   1.28   2.94
+Waitall             43    *     50     34.5     1.41    0.315   0.04   0.22
+
+Waitall             46   10     50   0.0388  0.00783  0.00639   0.01   0.02
+Waitall             46    *     50   0.0388  0.00783  0.00639   0.00   0.00
+
+Waitall             48   10     50     78.1     46.2     36.4  41.94  96.27
+Waitall             48    *     50     78.1     46.2     36.4   1.16   7.14
+
+Waitall             51   22     50   0.0632   0.0128   0.0064   0.01   0.03
+Waitall             51    *     50   0.0632   0.0128   0.0064   0.00   0.00
+
+Waitall             53   22     50     45.7     45.1     34.5  41.01  94.35
+Waitall             53    *     50     45.7     45.1     34.5   1.14   6.98
+
+Waitall             56    6     50   0.0258    0.011  0.00659   0.01   0.45
+Waitall             56    *     50   0.0258    0.011  0.00659   0.00   0.00
+
+Waitall             58    6     50     47.2     1.35    0.348   1.23  54.66
+Waitall             58    *     50     47.2     1.35    0.348   0.03   0.21
+
+Waitall             61   20     50   0.0337  0.00904   0.0067   0.01   0.31
+Waitall             61    *     50   0.0337  0.00904   0.0067   0.00   0.00
+
+Waitall             63   20     50     63.7     1.91    0.457   1.73  64.50
+Waitall             63    *     50     63.7     1.91    0.457   0.05   0.29
+
+Waitall             66   13     50   0.0605   0.0135   0.0068   0.01   0.49
+Waitall             66    *     50   0.0605   0.0135   0.0068   0.00   0.00
+
+Waitall             68   13     50     55.9     1.82    0.544   1.65  66.67
+Waitall             68    *     50     55.9     1.82    0.544   0.05   0.28
+
+Waitall             71    7     50   0.0349   0.0101  0.00648   0.01   0.34
+Waitall             71    *     50   0.0349   0.0101  0.00648   0.00   0.00
+
+Waitall             73    7     50     47.4     2.12    0.889   1.93  71.22
+Waitall             73    *     50     47.4     2.12    0.889   0.05   0.33
+
+Waitall             76   19     50   0.0161  0.00782  0.00623   0.01   0.31
+Waitall             76    *     50   0.0161  0.00782  0.00623   0.00   0.00
+
+Waitall             78   19     50     28.8     1.62    0.589   1.47  63.78
+Waitall             78    *     50     28.8     1.62    0.589   0.04   0.25
+
+Waitall             81   29     50   0.0168  0.00831   0.0066   0.01   0.02
+Waitall             81    *     50   0.0168  0.00831   0.0066   0.00   0.00
+
+Waitall             83   29     50     33.7     1.07    0.301   0.97   2.21
+Waitall             83    *     50     33.7     1.07    0.301   0.03   0.16
+
+Waitall             86    9     50     0.03     0.01  0.00655   0.01   0.36
+Waitall             86    *     50     0.03     0.01  0.00655   0.00   0.00
+
+Waitall             88    9     50     51.6     1.72     0.51   1.56  61.44
+Waitall             88    *     50     51.6     1.72     0.51   0.04   0.27
+
+Waitall             91    8     50   0.0206  0.00856  0.00651   0.01   0.30
+Waitall             91    *     50   0.0206  0.00856  0.00651   0.00   0.00
+
+Waitall             93    8     50     51.5     1.78    0.646   1.62  62.48
+Waitall             93    *     50     51.5     1.78    0.646   0.04   0.28
+
+Waitall             96   17     50   0.0588   0.0115  0.00682   0.01   0.02
+Waitall             96    *     50   0.0588   0.0115  0.00682   0.00   0.00
+
+Waitall             98   17     50       33     1.01    0.287   0.92   2.13
+Waitall             98    *     50       33     1.01    0.287   0.03   0.16
+
+Waitall            101   15     50   0.0208  0.00889  0.00655   0.01   0.35
+Waitall            101    *     50   0.0208  0.00889  0.00655   0.00   0.00
+
+Waitall            103   15     50     48.1     1.78    0.523   1.62  69.87
+Waitall            103    *     50     48.1     1.78    0.523   0.04   0.28
+
+Waitall            106   25     50    0.103   0.0126  0.00656   0.01   0.40
+Waitall            106    *     50    0.103   0.0126  0.00656   0.00   0.00
+
+Waitall            108   25     50     49.9     1.71    0.563   1.55  54.75
+Waitall            108    *     50     49.9     1.71    0.563   0.04   0.26
+
+Waitall            111   31     50   0.0202  0.00731  0.00656   0.01   0.21
+Waitall            111    *     50   0.0202  0.00731  0.00656   0.00   0.00
+
+Waitall            113   31     50       32     1.71    0.646   1.56  49.80
+Waitall            113    *     50       32     1.71    0.646   0.04   0.26
+
+Waitall            116   12     50   0.0461   0.0121  0.00681   0.01   0.41
+Waitall            116    *     50   0.0461   0.0121  0.00681   0.00   0.00
+
+Waitall            118   12     50     56.8     1.98    0.325   1.80  66.56
+Waitall            118    *     50     56.8     1.98    0.325   0.05   0.31
+
+Waitall            121   18     50    0.076  0.00946  0.00661   0.01   0.32
+Waitall            121    *     50    0.076  0.00946  0.00661   0.00   0.00
+
+Waitall            123   18     50       54     1.97    0.267   1.79  67.31
+Waitall            123    *     50       54     1.97    0.267   0.05   0.30
+
+Waitall            126   27     50   0.0186  0.00799  0.00652   0.01   0.27
+Waitall            126    *     50   0.0186  0.00799  0.00652   0.00   0.00
+
+Waitall            128   27     50     27.8     1.41    0.554   1.28  48.09
+Waitall            128    *     50     27.8     1.41    0.554   0.04   0.22
+
+Waitall            131   26     50    0.118   0.0119  0.00647   0.01   0.37
+Waitall            131    *     50    0.118   0.0119  0.00647   0.00   0.00
+
+Waitall            133   26     50     45.2     1.89     0.42   1.71  58.38
+Waitall            133    *     50     45.2     1.89     0.42   0.05   0.29
+
+Waitall            137   35     50   0.0484  0.00843  0.00655   0.01   0.02
+Waitall            137    *     50   0.0484  0.00843  0.00655   0.00   0.00
+
+Waitall            139   35     50     34.3     1.47    0.291   1.34   3.07
+Waitall            139    *     50     34.3     1.47    0.291   0.04   0.23
+
+Waitall            141   14     50   0.0825  0.00959  0.00683   0.01   0.33
+Waitall            141    *     50   0.0825  0.00959  0.00683   0.00   0.00
+
+Waitall            143   14     50       48     1.93    0.396   1.75  66.31
+Waitall            143    *     50       48     1.93    0.396   0.05   0.30
+
+Waitall            146   30     50   0.0735  0.00943   0.0067   0.01   0.30
+Waitall            146    *     50   0.0735  0.00943   0.0067   0.00   0.00
+
+Waitall            148   30     50       57     1.64    0.283   1.49  51.38
+Waitall            148    *     50       57     1.64    0.283   0.04   0.25
+
+Waitall            152   34     50   0.0409  0.00782  0.00607   0.01   0.02
+Waitall            152    *     50   0.0409  0.00782  0.00607   0.00   0.00
+
+Waitall            154   34     50     48.6     45.2       33  41.04  94.47
+Waitall            154    *     50     48.6     45.2       33   1.14   6.98
+
+Waitall            157   33     50   0.0486  0.00836  0.00675   0.01   0.32
+Waitall            157    *     50   0.0486  0.00836  0.00675   0.00   0.00
+
+Waitall            159   33     50     33.7     1.51     0.55   1.38  57.12
+Waitall            159    *     50     33.7     1.51     0.55   0.04   0.23
+
+Waitall            162   32     50   0.0411  0.00848  0.00662   0.01   0.27
+Waitall            162    *     50   0.0411  0.00848  0.00662   0.00   0.00
+
+Waitall            164   32     50       52     1.63    0.439   1.48  52.90
+Waitall            164    *     50       52     1.63    0.439   0.04   0.25
+
+Waitall            166   28     50   0.0173  0.00817  0.00647   0.01   0.02
+Waitall            166    *     50   0.0173  0.00817  0.00647   0.00   0.00
+
+Waitall            168   28     50     50.1     45.8     36.8  41.54  94.51
+Waitall            168    *     50     50.1     45.8     36.8   1.16   7.08
+
+Waitall            171   24     50   0.0246  0.00952  0.00665   0.01   0.28
+Waitall            171    *     50   0.0246  0.00952  0.00665   0.00   0.00
+
+Waitall            173   24     50     51.8     1.96    0.389   1.78  58.81
+Waitall            173    *     50     51.8     1.96    0.389   0.05   0.30
+
+Waitall            176   16     50   0.0273  0.00806  0.00642   0.01   0.02
+Waitall            176    *     50   0.0273  0.00806  0.00642   0.00   0.00
+
+Waitall            178   16     50     52.9     45.9     37.1  41.64  95.38
+Waitall            178    *     50     52.9     45.9     37.1   1.16   7.10
+---------------------------------------------------------------------------
+@--- Callsite Message Sent statistics (all, sent bytes) -------------------
+---------------------------------------------------------------------------
+Name              Site Rank   Count       Max      Mean       Min       Sum
+Allreduce            2    0      50         8         8         8       400
+Allreduce            2    *      50         8         8         8       400
+
+Allreduce            7    5      50         8         8         8       400
+Allreduce            7    *      50         8         8         8       400
+
+Allreduce           12    2      50         8         8         8       400
+Allreduce           12    *      50         8         8         8       400
+
+Allreduce           17    3      50         8         8         8       400
+Allreduce           17    *      50         8         8         8       400
+
+Allreduce           22    1      50         8         8         8       400
+Allreduce           22    *      50         8         8         8       400
+
+Allreduce           27   21      50         8         8         8       400
+Allreduce           27    *      50         8         8         8       400
+
+Allreduce           32    4      50         8         8         8       400
+Allreduce           32    *      50         8         8         8       400
+
+Allreduce           37   11      50         8         8         8       400
+Allreduce           37    *      50         8         8         8       400
+
+Allreduce           42   23      50         8         8         8       400
+Allreduce           42    *      50         8         8         8       400
+
+Allreduce           47   10      50         8         8         8       400
+Allreduce           47    *      50         8         8         8       400
+
+Allreduce           52   22      50         8         8         8       400
+Allreduce           52    *      50         8         8         8       400
+
+Allreduce           57    6      50         8         8         8       400
+Allreduce           57    *      50         8         8         8       400
+
+Allreduce           62   20      50         8         8         8       400
+Allreduce           62    *      50         8         8         8       400
+
+Allreduce           67   13      50         8         8         8       400
+Allreduce           67    *      50         8         8         8       400
+
+Allreduce           72    7      50         8         8         8       400
+Allreduce           72    *      50         8         8         8       400
+
+Allreduce           77   19      50         8         8         8       400
+Allreduce           77    *      50         8         8         8       400
+
+Allreduce           82   29      50         8         8         8       400
+Allreduce           82    *      50         8         8         8       400
+
+Allreduce           87    9      50         8         8         8       400
+Allreduce           87    *      50         8         8         8       400
+
+Allreduce           92    8      50         8         8         8       400
+Allreduce           92    *      50         8         8         8       400
+
+Allreduce           97   17      50         8         8         8       400
+Allreduce           97    *      50         8         8         8       400
+
+Allreduce          102   15      50         8         8         8       400
+Allreduce          102    *      50         8         8         8       400
+
+Allreduce          107   25      50         8         8         8       400
+Allreduce          107    *      50         8         8         8       400
+
+Allreduce          112   31      50         8         8         8       400
+Allreduce          112    *      50         8         8         8       400
+
+Allreduce          117   12      50         8         8         8       400
+Allreduce          117    *      50         8         8         8       400
+
+Allreduce          122   18      50         8         8         8       400
+Allreduce          122    *      50         8         8         8       400
+
+Allreduce          127   27      50         8         8         8       400
+Allreduce          127    *      50         8         8         8       400
+
+Allreduce          132   26      50         8         8         8       400
+Allreduce          132    *      50         8         8         8       400
+
+Allreduce          136   35      50         8         8         8       400
+Allreduce          136    *      50         8         8         8       400
+
+Allreduce          142   14      50         8         8         8       400
+Allreduce          142    *      50         8         8         8       400
+
+Allreduce          147   30      50         8         8         8       400
+Allreduce          147    *      50         8         8         8       400
+
+Allreduce          151   34      50         8         8         8       400
+Allreduce          151    *      50         8         8         8       400
+
+Allreduce          156   33      50         8         8         8       400
+Allreduce          156    *      50         8         8         8       400
+
+Allreduce          161   32      50         8         8         8       400
+Allreduce          161    *      50         8         8         8       400
+
+Allreduce          167   28      50         8         8         8       400
+Allreduce          167    *      50         8         8         8       400
+
+Allreduce          172   24      50         8         8         8       400
+Allreduce          172    *      50         8         8         8       400
+
+Allreduce          177   16      50         8         8         8       400
+Allreduce          177    *      50         8         8         8       400
+---------------------------------------------------------------------------
+@--- End of Report --------------------------------------------------------
+---------------------------------------------------------------------------
