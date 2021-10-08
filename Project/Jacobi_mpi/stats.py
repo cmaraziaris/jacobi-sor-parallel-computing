@@ -94,6 +94,7 @@ def print_graph(d, ax, fig, CONV):
         
 
 if __name__ == "__main__":
+    program_type = "mpi" # challenge, mpi, hybrid 
     # get all seq-runs output files
     out_re = re.compile("\AJ_seq_\w*\.o[0-9]*")
     seq_out_files = sorted(
@@ -102,7 +103,7 @@ if __name__ == "__main__":
                             key=lambda x : get_details(x)
                         )
     #  get all parallel-runs output files
-    out_re = re.compile("\AJ_mpi_\w*\.o[0-9]*")
+    out_re = re.compile("\AJ_{}_\w*\.o[0-9]*".format(program_type))
     par_out_files = sorted(
                             [file for file in os.listdir() 
                                 if isfile(file) and out_re.match(file)],
@@ -127,9 +128,11 @@ if __name__ == "__main__":
 
     print(efficiency)
         
-
+    # print graphs with allreduce use
     fig, ax = plt.subplots(3, 2, figsize=(15, 15))
     plt.xlabel("Processes")
+    ax[0][0].set_title("w\ Allreduce")
+    ax[0][1].set_title("w\out Allreduce")
     print_graph(times, ax[0][0], fig, "CONV")
     ax[0][0].set_ylabel("Time")
     print_graph(speedup, ax[1][0], fig, "CONV")
@@ -137,6 +140,7 @@ if __name__ == "__main__":
     print_graph(efficiency, ax[2][0], fig, "CONV")
     ax[2][0].set_ylabel("Efficiency")
 
+    # print graphs without allreduce use
     print_graph(times, ax[0][1], fig, "NO-CONV")
     ax[0][0].set_ylabel("Time")
     print_graph(speedup, ax[1][1], fig, "NO-CONV")
