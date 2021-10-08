@@ -1,0 +1,163 @@
+@ mpiP
+@ Command : jacobi_mpi.x 
+@ Version                  : 3.5.0
+@ MPIP Build date          : Nov 11 2020, 13:45:15
+@ Start time               : 2021 10 08 15:22:54
+@ Stop time                : 2021 10 08 15:22:57
+@ Timer Used               : PMPI_Wtime
+@ MPIP env var             : [null]
+@ Collector Rank           : 0
+@ Collector PID            : 879469
+@ Final Output Dir         : .
+@ Report generation        : Single collector task
+@ MPI Task Assignment      : 0 argo-c1
+@ MPI Task Assignment      : 1 argo-c1
+@ MPI Task Assignment      : 2 argo-c1
+@ MPI Task Assignment      : 3 argo-c1
+
+---------------------------------------------------------------------------
+@--- MPI Time (seconds) ---------------------------------------------------
+---------------------------------------------------------------------------
+Task    AppTime    MPITime     MPI%
+   0       2.62     0.0627     2.40
+   1       2.61     0.0626     2.40
+   2       2.62     0.0672     2.57
+   3       2.61     0.0662     2.53
+   *       10.5      0.259     2.47
+---------------------------------------------------------------------------
+@--- Callsites: 20 --------------------------------------------------------
+---------------------------------------------------------------------------
+ ID Lev File/Address        Line Parent_Funct             MPI_Call
+  1   0 0x4028e3                 [unknown]                Waitall
+  2   0 0x40288a                 [unknown]                Allreduce
+  3   0 0x40212a                 [unknown]                Waitall
+  4   0 0x401d49                 [unknown]                Startall
+  5   0 0x401d38                 [unknown]                Startall
+  6   0 0x148e56ac6c34           [unknown]                Waitall
+  7   0 0x148e56ab8c32           [unknown]                Allreduce
+  8   0 0x148e56ac6c34           [unknown]                Waitall
+  9   0 0x148e56ac5c3d           [unknown]                Startall
+ 10   0 0x148e56ac5c3d           [unknown]                Startall
+ 11   0 0x14e2b485bc34           [unknown]                Waitall
+ 12   0 0x14e2b484dc32           [unknown]                Allreduce
+ 13   0 0x14e2b485bc34           [unknown]                Waitall
+ 14   0 0x14e2b485ac3d           [unknown]                Startall
+ 15   0 0x14e2b485ac3d           [unknown]                Startall
+ 16   0 0x148bbad56c34           [unknown]                Waitall
+ 17   0 0x148bbad48c32           [unknown]                Allreduce
+ 18   0 0x148bbad56c34           [unknown]                Waitall
+ 19   0 0x148bbad55c3d           [unknown]                Startall
+ 20   0 0x148bbad55c3d           [unknown]                Startall
+---------------------------------------------------------------------------
+@--- Aggregate Time (top twenty, descending, milliseconds) ----------------
+---------------------------------------------------------------------------
+Call                 Site       Time    App%    MPI%      Count    COV
+Waitall                13       58.6    0.56   22.63         50   0.00
+Waitall                 8       56.8    0.54   21.96         50   0.00
+Waitall                 3       54.1    0.52   20.90         50   0.00
+Waitall                18       52.9    0.51   20.43         50   0.00
+Allreduce              17       8.09    0.08    3.13         50   0.00
+Allreduce               7       7.67    0.07    2.96         50   0.00
+Allreduce               2       6.81    0.07    2.63         50   0.00
+Allreduce              12        6.8    0.07    2.63         50   0.00
+Startall               14      0.811    0.01    0.31         50   0.00
+Startall                4      0.793    0.01    0.31         50   0.00
+Startall               15      0.736    0.01    0.28         50   0.00
+Startall                9      0.722    0.01    0.28         50   0.00
+Startall               19      0.717    0.01    0.28         50   0.00
+Startall               10      0.659    0.01    0.25         50   0.00
+Startall                5      0.658    0.01    0.25         50   0.00
+Startall               20      0.642    0.01    0.25         50   0.00
+Waitall                 1       0.37    0.00    0.14         50   0.00
+Waitall                16      0.329    0.00    0.13         50   0.00
+Waitall                 6      0.319    0.00    0.12         50   0.00
+Waitall                11      0.317    0.00    0.12         50   0.00
+---------------------------------------------------------------------------
+@--- Aggregate Sent Message Size (top twenty, descending, bytes) ----------
+---------------------------------------------------------------------------
+Call                 Site      Count      Total       Avrg  Sent%
+Allreduce               2         50        400          8  25.00
+Allreduce               7         50        400          8  25.00
+Allreduce              12         50        400          8  25.00
+Allreduce              17         50        400          8  25.00
+---------------------------------------------------------------------------
+@--- Callsite Time statistics (all, milliseconds): 20 ---------------------
+---------------------------------------------------------------------------
+Name              Site Rank  Count      Max     Mean      Min   App%   MPI%
+Allreduce            2    0     50     4.46    0.136   0.0192   0.26  10.85
+Allreduce            2    *     50     4.46    0.136   0.0192   0.07   2.63
+
+Allreduce            7    3     50     5.72    0.153   0.0174   0.29  11.58
+Allreduce            7    *     50     5.72    0.153   0.0174   0.07   2.96
+
+Allreduce           12    2     50     4.49    0.136   0.0196   0.26  10.12
+Allreduce           12    *     50     4.49    0.136   0.0196   0.07   2.63
+
+Allreduce           17    1     50     5.74    0.162   0.0187   0.31  12.91
+Allreduce           17    *     50     5.74    0.162   0.0187   0.08   3.13
+
+Startall             4    0     50    0.181   0.0159   0.0102   0.03   1.26
+Startall             4    *     50    0.181   0.0159   0.0102   0.01   0.31
+
+Startall             5    0     50    0.154   0.0132  0.00741   0.03   1.05
+Startall             5    *     50    0.154   0.0132  0.00741   0.01   0.25
+
+Startall             9    3     50    0.144   0.0144  0.00949   0.03   1.09
+Startall             9    *     50    0.144   0.0144  0.00949   0.01   0.28
+
+Startall            10    3     50     0.16   0.0132  0.00815   0.03   1.00
+Startall            10    *     50     0.16   0.0132  0.00815   0.01   0.25
+
+Startall            14    2     50    0.235   0.0162  0.00904   0.03   1.21
+Startall            14    *     50    0.235   0.0162  0.00904   0.01   0.31
+
+Startall            15    2     50    0.247   0.0147   0.0078   0.03   1.09
+Startall            15    *     50    0.247   0.0147   0.0078   0.01   0.28
+
+Startall            19    1     50    0.128   0.0143   0.0104   0.03   1.14
+Startall            19    *     50    0.128   0.0143   0.0104   0.01   0.28
+
+Startall            20    1     50    0.134   0.0128  0.00765   0.02   1.02
+Startall            20    *     50    0.134   0.0128  0.00765   0.01   0.25
+
+Waitall              1    0     50   0.0617  0.00739  0.00601   0.01   0.59
+Waitall              1    *     50   0.0617  0.00739  0.00601   0.00   0.14
+
+Waitall              3    0     50     27.5     1.08    0.386   2.07  86.25
+Waitall              3    *     50     27.5     1.08    0.386   0.52  20.90
+
+Waitall              6    3     50   0.0136  0.00637  0.00599   0.01   0.48
+Waitall              6    *     50   0.0136  0.00637  0.00599   0.00   0.12
+
+Waitall              8    3     50     31.3     1.14     0.39   2.17  85.85
+Waitall              8    *     50     31.3     1.14     0.39   0.54  21.96
+
+Waitall             11    2     50   0.0125  0.00634  0.00599   0.01   0.47
+Waitall             11    *     50   0.0125  0.00634  0.00599   0.00   0.12
+
+Waitall             13    2     50     30.7     1.17    0.434   2.24  87.11
+Waitall             13    *     50     30.7     1.17    0.434   0.56  22.63
+
+Waitall             16    1     50   0.0227  0.00659  0.00591   0.01   0.53
+Waitall             16    *     50   0.0227  0.00659  0.00591   0.00   0.13
+
+Waitall             18    1     50     26.8     1.06    0.349   2.02  84.39
+Waitall             18    *     50     26.8     1.06    0.349   0.51  20.43
+---------------------------------------------------------------------------
+@--- Callsite Message Sent statistics (all, sent bytes) -------------------
+---------------------------------------------------------------------------
+Name              Site Rank   Count       Max      Mean       Min       Sum
+Allreduce            2    0      50         8         8         8       400
+Allreduce            2    *      50         8         8         8       400
+
+Allreduce            7    3      50         8         8         8       400
+Allreduce            7    *      50         8         8         8       400
+
+Allreduce           12    2      50         8         8         8       400
+Allreduce           12    *      50         8         8         8       400
+
+Allreduce           17    1      50         8         8         8       400
+Allreduce           17    *      50         8         8         8       400
+---------------------------------------------------------------------------
+@--- End of Report --------------------------------------------------------
+---------------------------------------------------------------------------

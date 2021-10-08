@@ -1,0 +1,13 @@
+mpiP: 
+mpiP: mpiP V3.5.0 (Build Nov 11 2020/13:45:15)
+mpiP: 
+-> 6720, 6720, 0.8, 1, 1e-13, 50
+Iterations= 50
+Elapsed MPI Wall time is 1.854129
+Time taken 1 seconds 809 milliseconds
+Residual 5.25049e-12
+The error of the iterative solution is 2.29669e-05
+The error of the gathered solution is 7.93531e-05
+mpiP: 
+mpiP: Storing mpiP output in [./jacobi_mpi.x.25.803888.1.mpiP].
+mpiP: 
