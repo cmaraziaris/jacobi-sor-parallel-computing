@@ -79,10 +79,10 @@ def print_metrics(metrics, title, unit_str):
                   for i in line]), end=' \\\\ \\hline\n')
 
 
-def print_graph(d, ax, fig):
-    sizes = sorted(list(set([e[1] for e in d.keys()])))[:-1]
+def print_graph(d, ax, fig, CONV):
+    sizes = sorted(list(set([e[1] for e in d.keys()])))
     x = sorted(list(set([e[0] for e in d.keys()])))
-    ys = [[d[i] for i in d if i[1] == size and i[2] == "CONV"]
+    ys = [[d[i] for i in d if i[1] == size and i[2] == CONV]
            for size in sizes]
 
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange']
@@ -128,14 +128,22 @@ if __name__ == "__main__":
     print(efficiency)
         
 
-    fig, ax = plt.subplots(3, figsize=(10, 10))
+    fig, ax = plt.subplots(3, 2, figsize=(15, 15))
     plt.xlabel("Processes")
-    print_graph(times, ax[0], fig)
-    ax[0].set_ylabel("Time")
-    print_graph(speedup, ax[1], fig)
-    ax[1].set_ylabel("Speedup")
-    print_graph(efficiency, ax[2], fig)
-    ax[2].set_ylabel("Efficiency")
+    print_graph(times, ax[0][0], fig, "CONV")
+    ax[0][0].set_ylabel("Time")
+    print_graph(speedup, ax[1][0], fig, "CONV")
+    ax[1][0].set_ylabel("Speedup")
+    print_graph(efficiency, ax[2][0], fig, "CONV")
+    ax[2][0].set_ylabel("Efficiency")
+
+    print_graph(times, ax[0][1], fig, "NO-CONV")
+    ax[0][0].set_ylabel("Time")
+    print_graph(speedup, ax[1][1], fig, "NO-CONV")
+    ax[1][0].set_ylabel("Speedup")
+    print_graph(efficiency, ax[2][1], fig, "NO-CONV")
+    ax[2][0].set_ylabel("Efficiency")
+
     plt.show()
 
 
