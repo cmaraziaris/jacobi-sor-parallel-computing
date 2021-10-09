@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Usage:       $ bash global_run.sh <NUM_OF_TOTAL_PROCESSES> <ARRAY_SIZE>
-# Example run: $ bash global_run.sh 25 3360
+# Example run: $ bash global_run.sh 25 3360 1 (25 procs, input size 3360, with convergence check)
 
 SERIAL_SRC_NAME="jacobi_serial_opt"
 MPI_SRC_NAME="jacobi_mpi"
