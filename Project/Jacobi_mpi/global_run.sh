@@ -49,13 +49,13 @@ if [[ $procs -eq 1 ]]; then
 	mpicc ${SERIAL_SRC_NAME}.c -o ${SERIAL_SRC_NAME}.x -lm -O3
 	prog_type="seq"
 	nodes_c="#PBS -l select=1:ncpus=1:mem=16400000kb"
-	run_c="mpirun -np 1 ${SERIAL_SRC_NAME}.x < input"
+	run_c="mpirun -np 1 ${SERIAL_SRC_NAME}.x < input${array_size}"
 	
 
 else
 
 	prog_type="mpi"
-	run_c="mpirun ${MPI_SRC_NAME}.x < input"
+	run_c="mpirun ${MPI_SRC_NAME}.x < input${array_size}"
 
 	procs_arr=(4 9 16 25 36 49 64 80)
 	sel_arr=(1 3 4 5 6 7 8 8)
@@ -95,7 +95,7 @@ final_sh_input="$shell_c\n\n$job_name_c\n$queue_c\n$wall_time_c\n$nodes_c\n$work
 RANDOM_NAME="$RANDOM"
 
 # Run actual commands
-printf "$array_size,$array_size\n0.8\n1.0\n1e-13\n50\n" > input
+printf "$array_size,$array_size\n0.8\n1.0\n1e-13\n50\n" > input${array_size}
 printf "$final_sh_input" > my_PBS_script_${RANDOM_NAME}.sh
 sleep 2
 qsub my_PBS_script_${RANDOM_NAME}.sh

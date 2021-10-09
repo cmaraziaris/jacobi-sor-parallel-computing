@@ -4,11 +4,10 @@
 # Example run: $ bash hybrid_run.sh 3360 2 2 4
 
 # Uncomment following to enable CONVERGENCE check
+# CONV="-D CONVERGE_CHECK_TRUE=1"
+# CONV_NAME="_CONV"
 
-CONV="-D CONVERGE_CHECK_TRUE=1"
-CONV_NAME="_CONV"
-
-HYBRID_SRC_NAME="jacobi_mpi"
+HYBRID_SRC_NAME="jacobi_hybrid"
 
 echo
 echo ">>> Started hybrid_run.sh"
@@ -65,7 +64,7 @@ fi
 
 mpicc -fopenmp ${HYBRID_SRC_NAME}.c $SCHEDULE_TYPE $ENABLE_COLLAPSE -o ${HYBRID_SRC_NAME}.x -lm -O3 $CONV
 prog_type="hybrid"
-run_c="mpirun ${HYBRID_SRC_NAME}.x < input"
+run_c="mpirun ${HYBRID_SRC_NAME}.x < input${array_size}"
 
 nodes_c="#PBS -l select=${nodes}:ncpus=8:mpiprocs=${procs}:ompthreads=${num_threads}:mem=16400000kb"
 shell_c="#!/bin/bash"
@@ -79,7 +78,7 @@ final_sh_input="$shell_c\n\n$job_name_c\n$queue_c\n$wall_time_c\n$nodes_c\n$work
 RANDOM_NAME="$RANDOM"
 
 # Run actual commands
-printf "$array_size,$array_size\n0.8\n1.0\n1e-13\n50\n" > input
+printf "$array_size,$array_size\n0.8\n1.0\n1e-13\n50\n" > input${array_size}
 printf "$final_sh_input" > my_PBS_script_${RANDOM_NAME}.sh
 sleep 2
 qsub my_PBS_script_${RANDOM_NAME}.sh

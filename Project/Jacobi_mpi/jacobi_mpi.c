@@ -1,44 +1,12 @@
-/************************************************************
- * Program to solve a finite difference
- * discretization of the screened Poisson equation:
- * (d2/dx2)u + (d2/dy2)u - alpha u = f
- * with zero Dirichlet boundary condition using the iterative
- * Jacobi method with overrelaxation.
- *
- * RHS (source) function
- *   f(x,y) = -alpha*(1-x^2)(1-y^2)-2*[(1-x^2)+(1-y^2)]
- *
- * Analytical solution to the PDE
- *   u(x,y) = (1-x^2)(1-y^2)
- *
- * Current Version: Christian Iwainsky, RWTH Aachen University
- * MPI C Version: Christian Terboven, RWTH Aachen University, 2006
- * MPI Fortran Version: Dieter an Mey, RWTH Aachen University, 1999 - 2005
- * Modified: Sanjiv Shah,        Kuck and Associates, Inc. (KAI), 1998
- * Author:   Joseph Robicheaux,  Kuck and Associates, Inc. (KAI), 1998
- *
- * Unless READ_INPUT is defined, a meaningful input dataset is used (CT).
- *
- * Input : n     - grid dimension in x direction
- *         m     - grid dimension in y direction
- *         alpha - constant (always greater than 0.0)
- *         tol   - error tolerance for the iterative solver
- *         relax - Successice Overrelaxation parameter
- *         mits  - maximum iterations for the iterative solver
- *
- * On output
- *       : u(n,m)       - Dependent variable (solution)
- *       : f(n,m,alpha) - Right hand side function
- *
- *************************************************************/
-
-
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <mpi.h>
+
+// Comment to ommit convergence check (Always perform "mits" iterations)
+// #define CONVERGE_CHECK_TRUE 1
 
 /**********************************************************
  * Checks the error between numerical and exact solutions
@@ -65,7 +33,6 @@ double checkSolution(double xStart, double yStart,
         }
     }
     return error;
-    //return sqrt(error) / ((maxXCount - 2) * (maxYCount - 2));
 }
 
 int main(int argc, char **argv)
@@ -95,13 +62,8 @@ int main(int argc, char **argv)
     int dims[2] = { 0, 0 };
     MPI_Dims_create(numProcs, 2, dims);
 
-    fprintf(stderr, "\nProcs: %d Dims[0]: %d, Dims[1]: %d\n", numProcs, dims[0], dims[1]);
-
     MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periodic, 1, &comm_cart);
     MPI_Comm_rank(comm_cart, &myRank);
-
-    // printf("\nHello from Proccess with Rank: %d\n", myRank);
-    // fprintf(stderr, "\n[NEIGHB] Hi, this is Rank %d, with Neighbours: N->%d, S->%d, W->%d, E->%d\n", myRank, north, south, west, east);
 
     // make sure only the root process will read input configurations
     if (myRank == 0) {
@@ -130,11 +92,7 @@ int main(int argc, char **argv)
     int local_n = n / dims[0];
     int local_m = m / dims[1];
 
-    // printf("\n \n %d local_m : %d local_n: %d\n\n", myRank, local_m, local_n);
-
     // Define Row datatype
-    // NOTE: Probably not needed - comms can be done via local_x * MPI_DOUBLE instead of 1 * row_t
-    // but it's probably cleaner and more symmetric w/ row_t - not sure if faster though - TODO: CHECK it
     MPI_Datatype row_t;
     MPI_Type_contiguous(local_m, MPI_DOUBLE, &row_t);
     MPI_Type_commit(&row_t);
@@ -243,15 +201,6 @@ int main(int argc, char **argv)
     #endif
     {
         iterationCount++;
-
-        /*************************************************************
-         * Performs one iteration of the Jacobi method and computes
-         * the residual value.
-         *
-         * NOTE: u(0,*), u(maxXCount-1,*), u(*,0) and u(*,maxYCount-1)
-         * are BOUNDARIES and therefore not part of the solution.
-         *************************************************************/
-
         error = 0.0;
 
         // Begin Halo swap
@@ -317,7 +266,6 @@ int main(int argc, char **argv)
         {
             int x = 1;
             fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[y - 1];
-            // TODO : replace x where needed with constant
             updateVal = (u_old[indices[y] + x - 1] + u_old[indices[y] + x + 1]) * cx_cc +
                         (u_old[indices[y-1] + x] + u_old[indices[y+1] + x]) * cy_cc +
                         u_old[indices[y] + x] +
@@ -343,7 +291,6 @@ int main(int argc, char **argv)
         MPI_Allreduce(&error, &error_sum, 1, MPI_DOUBLE, MPI_SUM, comm_cart);
         error = sqrt(error_sum) / (n * m);
         #endif
-
 
         // wait to make sure the halos are sent
         MPI_Waitall(4, req_send, MPI_STATUSES_IGNORE);

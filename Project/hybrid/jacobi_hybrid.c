@@ -1,38 +1,3 @@
-/************************************************************
- * Program to solve a finite difference
- * discretization of the screened Poisson equation:
- * (d2/dx2)u + (d2/dy2)u - alpha u = f
- * with zero Dirichlet boundary condition using the iterative
- * Jacobi method with overrelaxation.
- *
- * RHS (source) function
- *   f(x,y) = -alpha*(1-x^2)(1-y^2)-2*[(1-x^2)+(1-y^2)]
- *
- * Analytical solution to the PDE
- *   u(x,y) = (1-x^2)(1-y^2)
- *
- * Current Version: Christian Iwainsky, RWTH Aachen University
- * MPI C Version: Christian Terboven, RWTH Aachen University, 2006
- * MPI Fortran Version: Dieter an Mey, RWTH Aachen University, 1999 - 2005
- * Modified: Sanjiv Shah,        Kuck and Associates, Inc. (KAI), 1998
- * Author:   Joseph Robicheaux,  Kuck and Associates, Inc. (KAI), 1998
- *
- * Unless READ_INPUT is defined, a meaningful input dataset is used (CT).
- *
- * Input : n     - grid dimension in x direction
- *         m     - grid dimension in y direction
- *         alpha - constant (always greater than 0.0)
- *         tol   - error tolerance for the iterative solver
- *         relax - Successice Overrelaxation parameter
- *         mits  - maximum iterations for the iterative solver
- *
- * On output
- *       : u(n,m)       - Dependent variable (solution)
- *       : f(n,m,alpha) - Right hand side function
- *
- *************************************************************/
-
-
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -41,6 +6,10 @@
 #include <mpi.h>
 #include <omp.h>
 
+// Comment to ommit convergence check (Always perform "mits" iterations)
+#define CONVERGE_CHECK_TRUE 1
+
+// for-loop schedule and collapse options for Benchmarks
 #ifndef SCHEDULE_TYPE
     #define SCHEDULE_TYPE static
 #endif
@@ -75,8 +44,8 @@ double checkSolution(double xStart, double yStart,
         }
     }
     return error;
-    //return sqrt(error) / ((maxXCount - 2) * (maxYCount - 2));
 }
+
 
 int main(int argc, char **argv)
 {
@@ -93,7 +62,7 @@ int main(int argc, char **argv)
     int prevRank, nextRank;
     double error_sum;
 
-    // init MPI and get comm size
+    // Initialize MPI and get comm size
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
 
@@ -104,26 +73,17 @@ int main(int argc, char **argv)
     int dims[2] = { 0, 0 };
     MPI_Dims_create(numProcs, 2, dims);
 
-    fprintf(stderr, "\nProcs: %d Dims[0]: %d, Dims[1]: %d\n", numProcs, dims[0], dims[1]);
-
     MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periodic, 1, &comm_cart);
     MPI_Comm_rank(comm_cart, &myRank);
-    // printf("\nHello from Proccess with Rank: %d\n", myRank);
-    // fprintf(stderr, "\n[NEIGHB] Hi, this is Rank %d, with Neighbours: N->%d, S->%d, W->%d, E->%d\n", myRank, north, south, west, east);
 
-    // make sure only the root process will read input configurations
-    if (myRank == 0) {
-        //    printf("Input n,m - grid dimension in x,y direction:\n");
+    // Make sure only the root process will read input configurations
+    if (myRank == 0)
+    {
         scanf("%d,%d", &n, &m);
-        //    printf("Input alpha - Helmholtz constant:\n");
         scanf("%lf", &alpha);
-        //    printf("Input relax - successive over-relaxation parameter:\n");
         scanf("%lf", &relax);
-        //    printf("Input tol - error tolerance for the iterrative solver:\n");
         scanf("%lf", &tol);
-        //    printf("Input mits - maximum solver iterations:\n");
         scanf("%d", &mits);
-
         printf("-> %d, %d, %g, %g, %g, %d\n", n, m, alpha, relax, tol, mits);
     }
 
@@ -138,11 +98,8 @@ int main(int argc, char **argv)
     int local_n = n / dims[0];
     int local_m = m / dims[1];
 
-    // printf("\n \n %d local_m : %d local_n: %d\n\n", myRank, local_m, local_n);
 
     // Define Row datatype
-    // NOTE: Probably not needed - comms can be done via local_x * MPI_DOUBLE instead of 1 * row_t
-    // but it's probably cleaner and more symmetric w/ row_t - not sure if faster though - TODO: CHECK it
     MPI_Datatype row_t;
     MPI_Type_contiguous(local_m, MPI_DOUBLE, &row_t);
     MPI_Type_commit(&row_t);
@@ -153,20 +110,19 @@ int main(int argc, char **argv)
     MPI_Type_commit(&col_t);
 
     // Store worker blocks in u, u_old
-    u = (double *) calloc(((local_n + 2) * (local_m + 2)), sizeof(double));
+    u =     (double *) calloc(((local_n + 2) * (local_m + 2)), sizeof(double));
     u_old = (double *) calloc(((local_n + 2) * (local_m + 2)), sizeof(double));
 
     if (u == NULL || u_old == NULL) {
         printf("Not enough memory for two %ix%i matrices\n", local_n + 2, local_m + 2); exit(1);
     }
     
-    int tag = 666; // random tag
+    int tag = 666;  // random tag
 
-    // find neighbours (from cartesian topology)
+    // Find neighbours (from cartesian topology)
     int south, north, east, west;
     MPI_Cart_shift(comm_cart, 0, 1, &north, &south);  // North --> Upper Row, South --> Lower Row
     MPI_Cart_shift(comm_cart, 1, 1, &west, &east);    // West  --> Left Col,  East  --> Right Col
-
 
     // Install persistent communication handles
     MPI_Request req_send_u_old[4], req_recv_u_old[4], req_send_u[4], req_recv_u[4];
@@ -275,7 +231,7 @@ int main(int argc, char **argv)
             # pragma omp barrier
 
             // Calculate inner values
-            # pragma omp for reduction(+:local_error0) schedule(SCHEDULE_TYPE) COLLAPSE_S
+            # pragma omp for reduction(+:local_error0) schedule(static) COLLAPSE_S
             for (int y = 2; y < (maxYCount - 2); y++)
             {
                 for (int x = 2; x < (maxXCount - 2); x++)
@@ -302,7 +258,6 @@ int main(int argc, char **argv)
             # pragma omp for reduction(+:local_error1) schedule(static)
             for (int x = 1; x < (maxXCount - 1); x++)
             {
-                // int y = 1;
                 fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[0];
                 updateVal = (u_old[indices[1] + x - 1] + u_old[indices[1] + x + 1]) * cx_cc +
                             (u_old[indices[0] + x] + u_old[indices[2] + x]) * cy_cc +
@@ -315,7 +270,6 @@ int main(int argc, char **argv)
             # pragma omp for reduction(+:local_error2) schedule(static)
             for (int x = 1; x < (maxXCount - 1); x++)
             {
-                // y = maxYCount - 2;
                 fX_dot_fY_sq = fX_sq[x - 1] * fY_sq[maxYCount - 3];
                 updateVal = (u_old[indices[maxYCount - 2] + x - 1] + u_old[indices[maxYCount - 2] + x + 1]) * cx_cc +
                                (u_old[indices[maxYCount - 3] + x] + u_old[indices[maxYCount - 1] + x]) * cy_cc +
@@ -329,7 +283,6 @@ int main(int argc, char **argv)
             # pragma omp for reduction(+:local_error3) schedule(static)
             for (int y = 1; y < (maxYCount - 1); y++)
             {
-                // x = 1
                 fX_dot_fY_sq = fX_sq[0] * fY_sq[y - 1];
                 updateVal = (u_old[indices[y] + 0] + u_old[indices[y] + 2]) * cx_cc +
                             (u_old[indices[y-1] + 1] + u_old[indices[y+1] + 1]) * cy_cc +
@@ -342,7 +295,6 @@ int main(int argc, char **argv)
             # pragma omp for reduction(+:local_error4) schedule(static)
             for (int y = 1; y < (maxYCount - 1); y++)
             {
-                // x = maxXCount - 2
                 fX_dot_fY_sq = fX_sq[maxXCount - 3] * fY_sq[y - 1];
                 updateVal = (u_old[indices[y] + maxXCount - 3] + u_old[indices[y] + maxXCount - 1]) * cx_cc +
                             (u_old[indices[y-1] + maxXCount-2] + u_old[indices[y+1] + maxXCount-2]) * cy_cc +
