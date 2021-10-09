@@ -78,10 +78,3 @@ Procs: 40 Dims[0]: 8, Dims[1]: 5
 Procs: 40 Dims[0]: 8, Dims[1]: 5
 
 Procs: 40 Dims[0]: 8, Dims[1]: 5
-[argo-c9:55759] pml_ucx.c:383  Error: ucp_ep_create(proc=32) failed: Destination is unreachable
-[argo-c9:55759] pml_ucx.c:453  Error: Failed to resolve UCX endpoint for rank 32
-Error in MPI_Isend(27145624, 1, 0x605140, 32, -27, 6315328) (-1)
-Error in NBC_Start_round() (-1)
-Error in NBC_Start_round() (-1)
-Error in NBC_Start_round() (-1)
-Error in NBC_Start_round() (-1)

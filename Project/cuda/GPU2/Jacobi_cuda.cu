@@ -5,7 +5,7 @@
 #include <math.h>
 #include "timestamp.h"
 
-// #define CONVERGE_CHECK_TRUE 1
+#define CONVERGE_CHECK_TRUE 1
 
 #define CUDA_SAFE_CALL(call)                                                  \
   {                                                                           \

@@ -3,6 +3,11 @@
 # Usage: $ bash hybrid_run.sh <ARRAY_SIZE> <# NODES> <# PROC PER NODE> <# THREADS PER NODE>"
 # Example run: $ bash hybrid_run.sh 3360 2 2 4
 
+# Uncomment following to enable CONVERGENCE check
+
+CONV="-D CONVERGE_CHECK_TRUE=1"
+CONV_NAME="_CONV"
+
 HYBRID_SRC_NAME="jacobi_mpi"
 
 echo
@@ -49,21 +54,22 @@ echo
 
 SCHEDULE_TYPE=""
 if (( $# > 4 )); then
-	SCHEDULE_TYPE="-DSCHEDULE_TYPE=$5"
+  SCHED_TP="$5,$6"
+	SCHEDULE_TYPE="-DSCHEDULE_TYPE=${SCHED_TP}"
 fi
 
-ENABLE_COLLAPSE=""
-if (( $# > 5 )); then
-	ENABLE_COLLAPSE="-DENABLE_COLLAPSE"
-fi
+# ENABLE_COLLAPSE=""
+# if (( $# > 5 )); then
+# 	ENABLE_COLLAPSE="-DENABLE_COLLAPSE"
+# fi
 
-mpicc -fopenmp ${HYBRID_SRC_NAME}.c $SCHEDULE_TYPE $ENABLE_COLLAPSE -o ${HYBRID_SRC_NAME}.x -lm -O3
+mpicc -fopenmp ${HYBRID_SRC_NAME}.c $SCHEDULE_TYPE $ENABLE_COLLAPSE -o ${HYBRID_SRC_NAME}.x -lm -O3 $CONV
 prog_type="hybrid"
 run_c="mpirun ${HYBRID_SRC_NAME}.x < input"
 
 nodes_c="#PBS -l select=${nodes}:ncpus=8:mpiprocs=${procs}:ompthreads=${num_threads}:mem=16400000kb"
 shell_c="#!/bin/bash"
-job_name_c="#PBS -N J_${prog_type}_N${nodes}_P${procs}_T${num_threads}_${array_size}"
+job_name_c="#PBS -N J_${prog_type}_N${nodes}_P${procs}_T${num_threads}_${array_size}${CONV_NAME}${5}${6}"
 queue_c="#PBS -q N10C80"
 wall_time_c="#PBS -l walltime=00:20:00"
 working_dir_c="cd \$PBS_O_WORKDIR"
