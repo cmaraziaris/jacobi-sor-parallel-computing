@@ -1,0 +1,7 @@
+Run:
+
+bash global_run.sh <ARRAY_SIZE>
+
+For example:
+
+bash global_run.sh 3360

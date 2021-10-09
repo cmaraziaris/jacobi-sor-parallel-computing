@@ -1,10 +1,10 @@
 Run:
 
-bash hybrid_run.sh <ARRAY_SIZE> <# NODES> <# PROCS PER NODE> <# THREADS PER PROCESS>"
+bash global_run.sh <ARRAY_SIZE> <# NODES> <# PROCS PER NODE> <# THREADS PER PROCESS>"
 
 For example:
 
-bash hybrid_run.sh 6720 8 2 4
+bash global_run.sh 6720 8 2 4
 
 for array size: 3360
 nodes: 8
