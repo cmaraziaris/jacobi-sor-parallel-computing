@@ -1,0 +1,7 @@
+Run:
+
+bash serial_run.sh <ARRAY_SIZE>
+
+For example:
+
+bash serial_run.sh 3360

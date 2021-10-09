@@ -1,0 +1,9 @@
+Run:
+
+bash global_run.sh <NUM_OF_GPUs -> always 1 in /GPU1/> <ARRAY_SIZE>
+
+For example:
+
+bash global_run.sh 1 6720
+
+for array size: 6720

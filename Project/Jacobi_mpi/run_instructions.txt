@@ -1,0 +1,7 @@
+Run:
+
+bash global_run.sh <TOTAL PROCESSES> <ARRAY_SIZE> <CONVERGENCE CHECK ON 1/OFF 0>
+
+For example:
+
+bash global_run 64 13440 0
