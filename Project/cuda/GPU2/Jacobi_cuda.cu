@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <omp.h>
 #include "timestamp.h"
 
 #define CONVERGE_CHECK_TRUE 1
@@ -207,22 +208,15 @@ int main(int argc, char **argv)
   {
     iterationCount++;
 
-    CUDA_SAFE_CALL(cudaSetDevice(0));
-    kernel<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3 + BLOCK_SIZE + 1) * sizeof(double)>>>(u, u_old, error_matrix, 0); //xd /bruh
-
-    CUDA_SAFE_CALL(cudaSetDevice(1));
-    kernel<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3 + BLOCK_SIZE + 1) * sizeof(double)>>>(u, u_old, error_matrix, h_n*h_m/2); //xd /bruh
-
-    CUDA_SAFE_CALL(cudaSetDevice(0));
-    CUDA_SAFE_CALL(cudaDeviceSynchronize());
-    CUDA_SAFE_CALL(cudaSetDevice(1));
-    CUDA_SAFE_CALL(cudaDeviceSynchronize());
+    # pragma omp parallel for
+    for (int gpu = 0; gpu < 2; ++gpu)
+    {
+      CUDA_SAFE_CALL(cudaSetDevice(gpu));
+      kernel<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3 + BLOCK_SIZE + 1) * sizeof(double)>>>(u, u_old, error_matrix, gpu*(h_n*h_m/2)); //xd /bruh
+      CUDA_SAFE_CALL(cudaDeviceSynchronize());
+    }
 
   #ifdef CONVERGE_CHECK_TRUE
-    // error = 0.0;
-    // for (int i = 0; i < 2 * dimGr.x; ++i)
-    //   error += error_matrix[i];
-
     error = get_residual_error(error_matrix, 2*((int) dimGr.x));
     error = sqrt(error) / (h_n * h_m);
   #endif
@@ -256,17 +250,14 @@ double get_residual_error(double *error_matrix, int error_elements) {
     dim3 dimBl(BLOCK_SIZE);
     dim3 dimGr(FRACTION_CEILING(stride, BLOCK_SIZE));
 
-    CUDA_SAFE_CALL(cudaSetDevice(0));
-    kernel_reduce_error<<<dimGr, dimBl>>>(error_matrix, stride);
-      
-    CUDA_SAFE_CALL(cudaSetDevice(1));
-    kernel_reduce_error<<<dimGr, dimBl>>>(error_matrix + error_elements/2, stride);
-    
+    # pragma omp parallel for
+    for (int gpu = 0; gpu < 2; ++gpu)
+    {
+      CUDA_SAFE_CALL(cudaSetDevice(gpu));
+      kernel_reduce_error<<<dimGr, dimBl>>>(error_matrix + gpu * (error_elements/2), stride);
+      CUDA_SAFE_CALL(cudaDeviceSynchronize());
+    }
     stride >>= 1;
-    CUDA_SAFE_CALL(cudaSetDevice(0));
-    CUDA_SAFE_CALL(cudaDeviceSynchronize());
-    CUDA_SAFE_CALL(cudaSetDevice(1));
-    CUDA_SAFE_CALL(cudaDeviceSynchronize());
   }
 
   return error_matrix[0] + error_matrix[error_elements/2];
