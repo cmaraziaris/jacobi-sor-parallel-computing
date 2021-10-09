@@ -36,13 +36,6 @@ echo ">>> Array size: ${array_size}"
 # echo ">>> Conv-Check: ${conv_check}"
 echo 
 
-# if [ "$3" -eq 1 ]; then
-# 	mpicc ${MPI_SRC_NAME}.c -o ${MPI_SRC_NAME}.x -lm -O3 -D CONVERGE_CHECK_TRUE=1
-# else 
-# 	mpicc ${MPI_SRC_NAME}.c -o ${MPI_SRC_NAME}.x -lm -O3
-# fi
-
-
 shell_c="#!/bin/bash"
 
 # if [ "$conv_check" -eq 1 ]; then

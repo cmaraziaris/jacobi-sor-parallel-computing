@@ -5,6 +5,7 @@
 #include <math.h>
 #include "timestamp.h"
 
+// Uncomment to ommit convergence check (Always perform "mits" iterations)
 #define CONVERGE_CHECK_TRUE
 
 #define CUDA_SAFE_CALL(call)                                                  \
@@ -18,30 +19,25 @@
     }                                                                         \
   }
 
-#define FRACTION_CEILING(numerator, denominator) \
-  ((numerator + denominator - 1) / denominator)
+#define FRACTION_CEILING(numerator, denominator) ((numerator + denominator - 1) / denominator)
 
-// declare constant-device variables
+// Declare constant-device variables, for faster access
 __constant__ int n, m, maxXCount, maxYCount;
 __constant__ double relax, cx_cc, cy_cc, c1, c2, xLeft, xRight, yBottom, yUp, deltaX, deltaY;
 
+// Host variables corresponding to __constant__ device variables.
 int h_n, h_m, h_maxXCount, h_maxYCount;
 double h_relax, h_cx_cc, h_cy_cc, h_c1, h_c2, h_xLeft, h_xRight, h_yBottom, h_yUp, h_deltaX, h_deltaY;
 
-// ON-HOST FUNCTIONS
+__host__ void initGPU(void);
+__host__ double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount, double *u, double deltaX, double deltaY, double alpha);
 
-// solution checker
-double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
-                     double *u, double deltaX, double deltaY, double alpha);
-
-void initGPU(void);
-
-// ON-DEVICE FUNCTIONS
-
-__global__ void kernel(double *u, double *u_old, double *error_matrix)
+// Main kernel : Each thread is assigned only 1 element, computes and stores
+// the updated value after 1 jacobi iteration.
+__global__ void one_jacobi_iteration(double *u, double *u_old, double *error_matrix)
 {
-  // calculate x and y before do the following line
-  int ti = threadIdx.x + blockIdx.x * blockDim.x; // get thread id
+  // Global Thread ID (ti) corresponds to exactly 1 of the n*m elements of u.
+  int ti = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (ti >= n * m) // Required in cases where the number of elements
     return;        // is *not* a multiple of threads per block (aka 1024) eg. 1680x1680/1024=2756.25 -> 2757 blocks
@@ -49,77 +45,73 @@ __global__ void kernel(double *u, double *u_old, double *error_matrix)
   int x = (ti % m);
   int y = (ti / n);
 
-  /////////////////////////////
-
-  // u_temp : [0, (Bdim + 2) * 3 - 1];
+  // Shared memory array, used to store every element from u_old
+  // that will be needed for every compuation performed in this *block*.
   extern __shared__ double u_tmp[];
 
-  // we spawn n*m threads,
-  // map "index" from indexing n*m elements -> (n+2)*(m+2) elements, including halos
+  // We spawn n*m threads,
+  // map "index" from indexing n*m elements -> (n+2)*(m+2) elements, including halos.
+  // "index" points to the element position in the enhanced u_old array ( of size (n+2) * (m+2) ).
   int index = ti + (m + 2) + 2 * (ti / m + 1) - 1;
 
-  if (threadIdx.x == 0)
-  {                                           // 1st element
-    u_tmp[blockDim.x + 2] = u_old[index - 1]; // center left
+  // In this phase, every thread brings its element and its upper and lower neighbors to the shared mem.
+  // Special care is provided to "edge" points, that also need to load "halo points".
+
+  if (threadIdx.x == 0) {                     // 1st element of the block ("edge" point)
+    u_tmp[blockDim.x + 2] = u_old[index - 1]; // Load center left "halo point"
   }
 
-  if (threadIdx.x == blockDim.x - 1)
-  {                                               // last element
-    u_tmp[2 * blockDim.x + 3] = u_old[index + 1]; // center right
+  if (threadIdx.x == blockDim.x - 1) {            // Last element ("edge" point)
+    u_tmp[2 * blockDim.x + 3] = u_old[index + 1]; // Load center right "halo point"
   }
 
-  u_tmp[1 + threadIdx.x] = u_old[index - (m + 2)];    // upper
-  u_tmp[blockDim.x + 3 + threadIdx.x] = u_old[index]; // center
-
-  // if (index + m + 2 >= (n+2)*(m+2)) printf("$$$someone fucked up n = %d, m = %d -- %d %d %d %d %d %d %d\n",
-  // n, m, (n*m), ((n+2)*(m+2)), index, threadIdx.x, blockIdx.x, blockDim.x, gridDim.x);
-  // if (2*blockDim.x + 5 + threadIdx.x >= ((1024 + 2) * 3)) printf("$$$$wat\n");
-
-  u_tmp[2 * blockDim.x + 5 + threadIdx.x] = u_old[index + (m + 2)]; // lower
-
-  // u_tmp[3][Bdim+2]
-  // [0, Bdim+1] // upper row
-  // [Bdim+2, Bdim+2 + (Bdim+1)] // center row
-  // [2Bdim+4, 2Bim+4 + (Bdim+1)] // lower row
-  // Tid in [0, Bdim-1]
+  u_tmp[1 + threadIdx.x] = u_old[index - (m + 2)];    // Load upper
+  u_tmp[blockDim.x + 3 + threadIdx.x] = u_old[index]; // Load center
+  u_tmp[2 * blockDim.x + 5 + threadIdx.x] = u_old[index + (m + 2)]; // Load lower
 
   double fX = (xLeft + (x - 1) * deltaX), fY = (yBottom + (y - 1) * deltaY);
   double fX_sq = fX * fX, fY_sq = fY * fY;
   double fX_dot_fY_sq = fX_sq * fY_sq;
-  int tmp_index = ((blockDim.x + 2) * 3);
+  int tmp_index = ((blockDim.x + 2) * 3);  // Points to the beginning of the error array.
 
   __syncthreads();
 
-  // do calculations
-
+  // Calculate!
   double updateVal = (u_tmp[blockDim.x + threadIdx.x + 2] + u_tmp[blockDim.x + threadIdx.x + 4]) * cx_cc + // left, right
                      (u_tmp[1 + threadIdx.x] + u_tmp[2 * blockDim.x + threadIdx.x + 5]) * cy_cc +          // up, down
                      u_tmp[blockDim.x + threadIdx.x + 3] +                                                 // self
                      c1 * (1.0 - fX_sq - fY_sq + fX_dot_fY_sq) -
                      c2 * (fX_dot_fY_sq - 1.0);
 
-  u_tmp[tmp_index + threadIdx.x] = updateVal * updateVal;
+  // Update u
   u[index] = u_tmp[blockDim.x + threadIdx.x + 3] - relax * updateVal;
+
+#ifdef CONVERGE_CHECK_TRUE  
+  // Update error
+  u_tmp[tmp_index + threadIdx.x] = updateVal * updateVal;
   
   int stride = blockDim.x / 2;
 
   __syncthreads();
+  // In this phase, the block-wide error is calculated.
+  // That is, every thread-local error is reduced to a global block-error sum.
 
-  while (stride > 0)
+  while (stride > 0)  // Perform a tree-like reduction in O(log(blockDim)) steps.
   {   
-    if (threadIdx.x > stride) // Required in cases where the number of elements
-      break;         // is *not* a multiple of threads per block (aka 1024) eg. 1680x1680/1024=2756.25 -> 2757 blocks
+    if (threadIdx.x > stride)
+      break; 
 
     u_tmp[tmp_index + threadIdx.x] += u_tmp[tmp_index + threadIdx.x + stride - 1];
     stride >>= 1;
   }
 
-  if (threadIdx.x == 0) {
+  if (threadIdx.x == 0) {  // Reduction finished -> store block error to grid error array.
     error_matrix[blockIdx.x] = u_tmp[tmp_index];
   }
+#endif
 }
 
-// NOTE: na valoume kai ton ari8miti apo to stride
+// Perform a tree-like reduction to "error_matrix" elements, in O(log(stride)) steps.
 __global__ void kernel_reduce_error(double *error_matrix, int stride)
 {
   int ti = threadIdx.x + blockIdx.x * blockDim.x; // get thread id
@@ -130,31 +122,23 @@ __global__ void kernel_reduce_error(double *error_matrix, int stride)
   error_matrix[ti] = error_matrix[ti] + error_matrix[ti + stride];
 }
 
+
 int main(int argc, char **argv)
 {
   int mits, allocCount, iterationCount, maxIterationCount, stride;
   double alpha, tol, maxAcceptableError, error;
   double *u, *u_old, *tmp, *error_matrix;
-  // double t1, t2;
 
-  //    printf("Input n,m - grid dimension in x,y direction:\n");
   scanf("%d,%d", &h_n, &h_m);
-  //    printf("Input alpha - Helmholtz constant:\n");
   scanf("%lf", &alpha);
-  //    printf("Input relax - successive over-relaxation parameter:\n");
   scanf("%lf", &h_relax);
-  //    printf("Input tol - error tolerance for the iterrative solver:\n");
   scanf("%lf", &tol);
-  //    printf("Input mits - maximum solver iterations:\n");
   scanf("%d", &mits);
-
   printf("-> %d, %d, %g, %g, %g, %d\n", h_n, h_m, alpha, h_relax, tol, mits);
 
   allocCount = (h_n + 2) * (h_m + 2);
 
- 
-  ////////////////////////////////
-  // Cuda malloc test
+  // Allocate arrays in both CPU and GPU memory.
   double *h_u, *h_u_old, *h_error_matrix;
   h_u = (double *) calloc(allocCount, sizeof(double));
   h_u_old = (double *) calloc(allocCount, sizeof(double));
@@ -180,9 +164,6 @@ int main(int argc, char **argv)
   iterationCount = 0;
   error = HUGE_VAL;
 
-  // clock_t start = clock(), diff;
-  //   t1 = MPI_Wtime();
-
   timestamp t_start;
   t_start = getTimestamp();
 
@@ -199,42 +180,30 @@ int main(int argc, char **argv)
   h_c1 = (2.0 + alpha) * div_cc;
   h_c2 = 2.0 * div_cc;
 
-  // pass_values_to_gpu();
-  initGPU();
+  initGPU();  // Pass constant values to GPU.
 
-  // set blocks and threads/block TODO: make it more generic
+  // Set blocks and threads per block.
   int BLOCK_SIZE = 128;
   printf("GPU Threads used per block: %d\n", BLOCK_SIZE);
   dim3 dimBl(BLOCK_SIZE);
   dim3 dimGr(FRACTION_CEILING(h_n * h_m, BLOCK_SIZE));
 
   /* Iterate as long as it takes to meet the convergence criterion */
-  while (iterationCount < maxIterationCount && error > maxAcceptableError)
+#ifdef CONVERGE_CHECK_TRUE
+    while (iterationCount < maxIterationCount && error > maxAcceptableError)
+#else
+    while (iterationCount < maxIterationCount)
+#endif
   {
     iterationCount++;
 
-    /*************************************************************
-     * Performs one iteration of the Jacobi method and computes
-     * the residual value.
-     *
-     * NOTE: u(0,*), u(maxXCount-1,*), u(*,0) and u(*,maxYCount-1)
-     * are BOUNDARIES and therefore not part of the solution.
-     *************************************************************/
-
-    // error = 0.0;
-
-    // run kernel
-    kernel<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3 + BLOCK_SIZE + 1) * sizeof(double)>>>(u, u_old, error_matrix); //xd /bruh
-
-    // estimate the error : error += updateVal * updateVal;
-
+    // Run kernel
+    one_jacobi_iteration<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3 + BLOCK_SIZE + 1) * sizeof(double)>>>(u, u_old, error_matrix);
     CUDA_SAFE_CALL(cudaDeviceSynchronize());
 
-    // error = sqrt(error) / (n * m);
-
-  #ifdef CONVERGE_CHECK_TRUE
+#ifdef CONVERGE_CHECK_TRUE
     stride = h_n * h_m / 2;
-    while (stride > 0)
+    while (stride > 0)  // Calculate the residual error.
     {
       int BLOCK_SIZE = ( (stride < 128 ? stride : 128) );
       dim3 dimBl(BLOCK_SIZE);
@@ -246,9 +215,8 @@ int main(int argc, char **argv)
     }
 
     CUDA_SAFE_CALL(cudaMemcpy(h_error_matrix, error_matrix, sizeof(double), cudaMemcpyDeviceToHost));
-
     error = sqrt(h_error_matrix[0]) / (h_n * h_m);
-  #endif
+#endif
   
     // Swap the buffers
     tmp = u_old;
@@ -304,7 +272,7 @@ double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
 }
 
 void initGPU(void)
-{ // bruh
+{
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(n, &h_n, sizeof(int), 0, cudaMemcpyHostToDevice));
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(m, &h_m, sizeof(int), 0, cudaMemcpyHostToDevice));
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(maxXCount, &h_maxXCount, sizeof(int), 0, cudaMemcpyHostToDevice));

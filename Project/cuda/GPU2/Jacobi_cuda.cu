@@ -6,6 +6,7 @@
 #include <omp.h>
 #include "timestamp.h"
 
+// Uncomment to ommit convergence check (Always perform "mits" iterations)
 #define CONVERGE_CHECK_TRUE 1
 
 #define CUDA_SAFE_CALL(call)                                                  \
@@ -22,83 +23,88 @@
 #define FRACTION_CEILING(numerator, denominator) \
   ((numerator + denominator - 1) / denominator)
 
-// declare constant-device variables
+// Declare constant-device variables, for faster access
 __constant__ int n, m, maxXCount, maxYCount;
 __constant__ double relax, cx_cc, cy_cc, c1, c2, xLeft, xRight, yBottom, yUp, deltaX, deltaY;
 
+// Host variables corresponding to __constant__ device variables.
 int h_n, h_m, h_maxXCount, h_maxYCount;
 double h_relax, h_cx_cc, h_cy_cc, h_c1, h_c2, h_xLeft, h_xRight, h_yBottom, h_yUp, h_deltaX, h_deltaY;
 
-// ON-HOST FUNCTIONS
 
-// solution checker
-double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount,
-                     double *u, double deltaX, double deltaY, double alpha);
+__host__ void initGPU(void);
+__host__ void initGPUs(void);
+__host__ double checkSolution(double xStart, double yStart, int maxXCount, int maxYCount, double *u, double deltaX, double deltaY, double alpha);
+__host__ double get_residual_error(double *error_matrix, int error_elements);
 
-void initGPU(void);
-void initGPUs(void);
-double get_residual_error(double *error_matrix, int error_elements);
-
-// ON-DEVICE FUNCTIONS
-
-__global__ void kernel(double *u, double *u_old, double *error_matrix, int offset)
+__global__ void one_jacobi_iteration(double *u, double *u_old, double *error_matrix, int offset)
 {
-  // calculate x and y before do the following line
+  // Global Thread ID (ti) corresponds to exactly 1 of the n*m elements of u.
   int ti = threadIdx.x + blockIdx.x * blockDim.x; // get thread id
 
   if (ti >= (n * m) / 2) // Required in cases where the number of elements
-    return;        // is *not* a multiple of threads per block (aka 1024) eg. 1680x1680/1024=2756.25 -> 2757 blocks
+    return;              // is *not* a multiple of threads per block (aka 1024) eg. 1680x1680/1024=2756.25 -> 2757 blocks
 
+  // We use offset to split the u_old array to 2 GPUs - each taking half of the total rows.
   ti += offset;
   int x = (ti % m);
   int y = (ti / n);
 
+  // Shared memory array, used to store every element from u_old
+  // that will be needed for every compuation performed in this *block*.
   extern __shared__ double u_tmp[];
 
-  // we spawn n*m threads,
-  // map "index" from indexing n*m elements -> (n+2)*(m+2) elements, including halos
+  // We spawn n*m threads,
+  // map "index" from indexing n*m elements -> (n+2)*(m+2) elements, including halos.
+  // "index" points to the element position in the enhanced u_old array ( of size (n+2) * (m+2) ).
   int index = ti + (m + 2) + 2 * (ti / m + 1) - 1;
 
-  if (threadIdx.x == 0) {                     // 1st element
-    u_tmp[blockDim.x + 2] = u_old[index - 1]; // center left
+  // In this phase, every thread brings its element and its upper and lower neighbors to the shared mem.
+  // Special care is provided to "edge" points, that also need to load "halo points".
+
+  if (threadIdx.x == 0) {                     // 1st element of the block ("edge" point)
+    u_tmp[blockDim.x + 2] = u_old[index - 1]; // Load center left "halo point"
   }
 
-  if (threadIdx.x == blockDim.x - 1) {            // last element
-    u_tmp[2 * blockDim.x + 3] = u_old[index + 1]; // center right
+  if (threadIdx.x == blockDim.x - 1) {            // Last element ("edge" point)
+    u_tmp[2 * blockDim.x + 3] = u_old[index + 1]; // Load center right "halo point"
   }
 
-  u_tmp[1 + threadIdx.x] = u_old[index - (m + 2)];    // upper
-  u_tmp[blockDim.x + 3 + threadIdx.x] = u_old[index]; // center
-  u_tmp[2 * blockDim.x + 5 + threadIdx.x] = u_old[index + (m + 2)]; // lower
+  u_tmp[1 + threadIdx.x] = u_old[index - (m + 2)];    // Load upper
+  u_tmp[blockDim.x + 3 + threadIdx.x] = u_old[index]; // Load center
+  u_tmp[2 * blockDim.x + 5 + threadIdx.x] = u_old[index + (m + 2)]; // Load lower
 
   double fX = (xLeft + (x - 1) * deltaX), fY = (yBottom + (y - 1) * deltaY);
   double fX_sq = fX * fX, fY_sq = fY * fY;
   double fX_dot_fY_sq = fX_sq * fY_sq;
-  int tmp_index = ((blockDim.x + 2) * 3);
+  int tmp_index = ((blockDim.x + 2) * 3);  // Points to the beginning of the error array.
 
   __syncthreads();
 
-  // do calculations
+  // Calculate!
   double updateVal = (u_tmp[blockDim.x + threadIdx.x + 2] + u_tmp[blockDim.x + threadIdx.x + 4]) * cx_cc + // left, right
                      (u_tmp[1 + threadIdx.x] + u_tmp[2 * blockDim.x + threadIdx.x + 5]) * cy_cc +          // up, down
                      u_tmp[blockDim.x + threadIdx.x + 3] +                                                 // self
                      c1 * (1.0 - fX_sq - fY_sq + fX_dot_fY_sq) -
                      c2 * (fX_dot_fY_sq - 1.0);
   
-// #ifdef CONVERGE_CHECK_TRUE
-//   error_matrix[ti] = updateVal * updateVal;
-// #endif
-  u_tmp[tmp_index + threadIdx.x] = updateVal * updateVal;
+  // Update u
   u[index] = u_tmp[blockDim.x + threadIdx.x + 3] - relax * updateVal;
+
 #ifdef CONVERGE_CHECK_TRUE  
+  // Update error
+  u_tmp[tmp_index + threadIdx.x] = updateVal * updateVal;
+  
   int stride = blockDim.x / 2;
 
   __syncthreads();
+  // In this phase, the block-wide error is calculated.
+  // That is, every thread-local error is reduced to a global block-error sum.
 
-  while (stride > 0)
+  while (stride > 0)  // Perform a tree-like reduction in O(log(blockDim)) steps.
   {   
-    if (threadIdx.x > stride) // Required in cases where the number of elements
-      break;         // is *not* a multiple of threads per block (aka 1024) eg. 1680x1680/1024=2756.25 -> 2757 blocks
+    if (threadIdx.x > stride)
+      break;
 
     u_tmp[tmp_index + threadIdx.x] += u_tmp[tmp_index + threadIdx.x + stride - 1];
     stride >>= 1;
@@ -106,6 +112,7 @@ __global__ void kernel(double *u, double *u_old, double *error_matrix, int offse
 
   if (threadIdx.x == 0)
   {
+    // Reduction finished -> store block error to specific grid error array.
     int index = ( offset == 0 ? 0 : blockDim.x );
     error_matrix[index + blockIdx.x] = u_tmp[tmp_index + 0];
   }
@@ -113,7 +120,7 @@ __global__ void kernel(double *u, double *u_old, double *error_matrix, int offse
 }
 
 
-// NOTE: na valoume kai ton ari8miti apo to stride
+// Perform a tree-like reduction to "error_matrix" elements, in O(log(stride)) steps.
 __global__ void kernel_reduce_error(double *error_matrix, int stride)
 {
   int ti = threadIdx.x + blockIdx.x * blockDim.x; // get thread id
@@ -139,30 +146,29 @@ int main(int argc, char **argv)
 
   allocCount = (h_n + 2) * (h_m + 2);
 
-  // set blocks and threads/block TODO: make it more generic
+  // Set blocks and threads per block.
   int BLOCK_SIZE = 128;
   printf("GPU Threads used per block: %d\n", BLOCK_SIZE);
   dim3 dimBl(BLOCK_SIZE);
   dim3 dimGr(FRACTION_CEILING((h_n * h_m)/2, BLOCK_SIZE));
 
-  // Those two calls also zero the boundary elements
-  CUDA_SAFE_CALL(cudaMallocManaged(&u, allocCount * sizeof(double)));            // reserve memory in global unified address space
-  CUDA_SAFE_CALL(cudaMallocManaged(&u_old, allocCount * sizeof(double)));        // reserve memory in global unified address space
+  // Those two calls also zero the boundary elements.
+  CUDA_SAFE_CALL(cudaMallocManaged(&u, allocCount * sizeof(double)));            // Reserve memory in global unified address space.
+  CUDA_SAFE_CALL(cudaMallocManaged(&u_old, allocCount * sizeof(double)));        // Reserve memory in global unified address space.
 #ifdef CONVERGE_CHECK_TRUE
-  CUDA_SAFE_CALL(cudaMallocManaged(&error_matrix, 2*((int) dimGr.x) * sizeof(double))); // reserve memory in global unified address space
+  CUDA_SAFE_CALL(cudaMallocManaged(&error_matrix, 2*((int) dimGr.x) * sizeof(double))); // Reserve memory in global unified address space.
 #endif
 
   int N = allocCount / 2;
-  // int N1 = h_n*h_m/2;
-  // CUDA_SAFE_CALL(cudaSetDevice(0));
+  // Pre-fetch the data each GPU is going to operate on,
+  // to reduce the Page Fault ration.
   CUDA_SAFE_CALL(cudaMemPrefetchAsync(u_old, N*sizeof(double), 0, NULL));
   CUDA_SAFE_CALL(cudaMemPrefetchAsync(u, N*sizeof(double), 0, NULL));
-  // CUDA_SAFE_CALL(cudaSetDevice(1));
   CUDA_SAFE_CALL(cudaMemPrefetchAsync(u_old + N, N*sizeof(double), 1, NULL));
   CUDA_SAFE_CALL(cudaMemPrefetchAsync(u + N, N*sizeof(double), 1, NULL));
 
 #ifdef CONVERGE_CHECK_TRUE
-  int N1 = ((int) dimGr.x);
+  int N1 = ((int) dimGr.x);  // More pre-fetching.
   CUDA_SAFE_CALL(cudaMemPrefetchAsync(error_matrix, N1*sizeof(double), 0, NULL));
   CUDA_SAFE_CALL(cudaMemPrefetchAsync(error_matrix + N1, N1*sizeof(double), 1, NULL));
 #endif
@@ -196,8 +202,7 @@ int main(int argc, char **argv)
   h_c1 = (2.0 + alpha) * div_cc;
   h_c2 = 2.0 * div_cc;
 
-  // pass_values_to_gpu();
-  initGPUs();
+  initGPUs();  // Pass constant values to GPUs.
 
   /* Iterate as long as it takes to meet the convergence criterion */
 #ifdef CONVERGE_CHECK_TRUE
@@ -212,7 +217,7 @@ int main(int argc, char **argv)
     for (int gpu = 0; gpu < 2; ++gpu)
     {
       CUDA_SAFE_CALL(cudaSetDevice(gpu));
-      kernel<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3 + BLOCK_SIZE + 1) * sizeof(double)>>>(u, u_old, error_matrix, gpu*(h_n*h_m/2)); //xd /bruh
+      one_jacobi_iteration<<<dimGr, dimBl, ((BLOCK_SIZE + 2) * 3 + BLOCK_SIZE + 1) * sizeof(double)>>>(u, u_old, error_matrix, gpu*(h_n*h_m/2));
       CUDA_SAFE_CALL(cudaDeviceSynchronize());
     }
 
@@ -241,8 +246,9 @@ int main(int argc, char **argv)
   return 0;
 }
 
-double get_residual_error(double *error_matrix, int error_elements) {
-
+  // Calculate the residual error by tree-like reduction.
+double get_residual_error(double *error_matrix, int error_elements)
+{
   int stride = error_elements / 4;
   while (stride > 0)
   {
@@ -250,6 +256,7 @@ double get_residual_error(double *error_matrix, int error_elements) {
     dim3 dimBl(BLOCK_SIZE);
     dim3 dimGr(FRACTION_CEILING(stride, BLOCK_SIZE));
 
+    // Split reduction to the GPUs.
     # pragma omp parallel for
     for (int gpu = 0; gpu < 2; ++gpu)
     {
@@ -271,7 +278,7 @@ void initGPUs(void) {
 }
 
 void initGPU(void)
-{ // bruh
+{
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(n, &h_n, sizeof(int), 0, cudaMemcpyHostToDevice));
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(m, &h_m, sizeof(int), 0, cudaMemcpyHostToDevice));
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(maxXCount, &h_maxXCount, sizeof(int), 0, cudaMemcpyHostToDevice));
