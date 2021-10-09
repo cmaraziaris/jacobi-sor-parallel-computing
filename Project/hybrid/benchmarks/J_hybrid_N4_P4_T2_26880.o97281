@@ -1,0 +1,7 @@
+-> 26880, 26880, 0.8, 1, 1e-13, 50
+Iterations= 50
+Elapsed MPI Wall time is 41.575258
+Time taken 41 seconds 307 milliseconds
+Residual 9.99815e-14
+The error of the iterative solution is 8.21444e-06
+The error of the gathered solution is 1.98405e-05

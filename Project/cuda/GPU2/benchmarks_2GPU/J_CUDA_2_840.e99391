@@ -1,0 +1,39 @@
+==15035== NVPROF is profiling process 15035, command: ./Jacobi_cuda
+==15035== Profiling application: ./Jacobi_cuda
+==15035== Profiling result:
+
+==15035== Device "Quadro P4000 (0)"
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:   79.55%  26.101ms        50  522.02us  195.27us  1.5102ms  kernel(double*, double*, double*, int)
+                   20.41%  6.6984ms       550  12.178us  1.2480us  577.70us  kernel_reduce_error(double*, int)
+                    0.04%  11.616us        15     774ns     736ns  1.1520us  [CUDA memcpy HtoD]
+
+==15035== Unified Memory profiling result:
+Device "Quadro P4000 (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+      36  4.0000KB  4.0000KB  4.0000KB  144.0000KB  120.6400us  Host To Device
+     218  13.174KB  4.0000KB  0.9961MB  2.804688MB  413.3130us  Device To Host
+     857         -         -         -           -  24.72206ms  Gpu page fault groups
+      20         -         -         -           -  8.338869ms  Page throttles
+       1  4.0000KB  4.0000KB  4.0000KB  4.000000KB           -  Memory thrashes
+Device "Quadro P4000 (1)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+       1  4.0000KB  4.0000KB  4.0000KB  4.000000KB           -  Memory thrashes
+
+==15035== Device "Quadro P4000 (1)"
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:   88.31%  32.836ms        50  656.73us  270.15us  1.5611ms  kernel(double*, double*, double*, int)
+                   11.66%  4.3357ms       550  7.8830us  1.3120us  489.06us  kernel_reduce_error(double*, int)
+                    0.03%  11.808us        15     787ns     736ns  1.0240us  [CUDA memcpy HtoD]
+
+==15035== Unified Memory profiling result:
+Device "Quadro P4000 (0)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+       1  4.0000KB  4.0000KB  4.0000KB  4.000000KB           -  Memory thrashes
+Device "Quadro P4000 (1)"
+   Count  Avg Size  Min Size  Max Size  Total Size  Total Time  Name
+       6  4.0000KB  4.0000KB  4.0000KB  24.00000KB  14.81600us  Host To Device
+     108  26.333KB  4.0000KB  0.9961MB  2.777344MB  506.1470us  Device To Host
+    1480         -         -         -           -  30.32585ms  Gpu page fault groups
+      26         -         -         -           -  10.99011ms  Page throttles
+       1  4.0000KB  4.0000KB  4.0000KB  4.000000KB           -  Memory thrashes

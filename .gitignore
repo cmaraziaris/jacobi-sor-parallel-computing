@@ -3,7 +3,8 @@
 
 
 *.x
-*.o*
-*.e*
+*.o
+# *.o*
+# *.e*
 input
 Jacobi_cuda

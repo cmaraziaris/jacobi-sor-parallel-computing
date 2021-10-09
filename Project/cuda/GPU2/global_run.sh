@@ -55,9 +55,9 @@ job_name_c="#PBS -N J_CUDA_${gpus}_${array_size}"
 queue_c="#PBS -q GPUq"
 wall_time_c="#PBS -l walltime=00:20:00"
 working_dir_c="cd \$PBS_O_WORKDIR"
-nodes_c="#PBS -l select=1:ncpus=1:ngpus=${gpus} -lplace=excl"
+nodes_c="#PBS -l select=1:ncpus=8:ngpus=${gpus} -lplace=excl"
 run_c="nvprof --print-summary-per-gpu ./Jacobi_cuda < input"
-run_c="cuda-memcheck ./Jacobi_cuda < input"
+# run_c="cuda-memcheck ./Jacobi_cuda < input"
 
 final_sh_input="$shell_c\n\n$job_name_c\n$queue_c\n$wall_time_c\n$nodes_c\n$working_dir_c\n$run_c\n"
 

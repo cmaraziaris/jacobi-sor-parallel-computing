@@ -1,6 +1,6 @@
 CUDA_INSTALL_PATH = /usr/local/cuda-11.1
 CC = g++
-OPTFLAG = -O2 -fomit-frame-pointer -ftree-vectorize -ftree-vectorizer-verbose=0  -funroll-loops
+OPTFLAG = -O2 -fomit-frame-pointer -ftree-vectorize -ftree-vectorizer-verbose=0  -funroll-loops -fopenmp
 NVCC = ${CUDA_INSTALL_PATH}/bin/nvcc
 INCDIR = -I../common/inc/
 FLAGS = ${OPTFLAG} -I${CUDA_INSTALL_PATH}/include -Wall -g ${INCDIR}

@@ -1,0 +1,13 @@
+==14545== NVPROF is profiling process 14545, command: ./Jacobi_cuda
+==14545== Profiling application: ./Jacobi_cuda
+==14545== Profiling result:
+
+==14545== Device "Quadro P4000 (0)"
+            Type  Time(%)      Time     Calls       Avg       Min       Max  Name
+ GPU activities:   57.57%  2.55944s        50  51.189ms  50.943ms  57.302ms  kernel(double*, double*, double*)
+                   23.35%  1.03787s      1350  768.79us     896ns  10.377ms  kernel_reduce_error(double*, int)
+                   10.85%  482.52ms        18  26.807ms     640ns  160.88ms  [CUDA memcpy HtoD]
+                    8.23%  365.71ms        51  7.1707ms     704ns  365.67ms  [CUDA memcpy DtoH]
+
+==14545== Device "Quadro P4000 (1)"
+No kernels were profiled.
